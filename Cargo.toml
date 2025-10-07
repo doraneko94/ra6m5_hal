@@ -1,0 +1,15 @@
+[package]
+name = "ra6m5-hal"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cortex-m = "0.7.7"
+cortex-m-rt = "0.7.5"
+critical-section = "1.2.0"
+embedded-hal = "1.0.0"
+paste = "1.0.15"
+ra6m5-pac = { version = "0.2.0", features = ["port0", "port1", "pfs", "sysc", "fcache", "flad"] }
+
+[dev-dependencies]
+panic-halt = "1.0.0"

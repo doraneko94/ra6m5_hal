@@ -1,0 +1,8 @@
+[build]
+target = "thumbv8m.main-none-eabihf"
+
+[target.thumbv8m.main-none-eabihf]
+runner = "probe-rs run --chip R7FA6M5BH --protocol swd --speed 1000 --connect-under-reset"
+rustflags = [
+    "-C", "link-arg=-Tlink.x"
+]
