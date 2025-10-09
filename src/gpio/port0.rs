@@ -4,7 +4,10 @@ use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
-use crate::{gpio_pin_analog, gpio_pin_input, gpio_pin_irq, gpio_pin_output};
+use crate::{
+    gpio_pin_pfs, 
+    gpio_pin_analog, gpio_pin_input, gpio_pin_irq, gpio_pin_output
+};
 
 pub struct Port0 {
     _regs: pac::Port0
@@ -49,67 +52,80 @@ impl Port0 {
     }
 }
 
-gpio_pin_input!(0, 00, 00);
-gpio_pin_analog!(0, 00, 00);
-gpio_pin_irq!(0, 00, 00);
-gpio_pin_output!(0, 00, 00);
+gpio_pin_pfs!   (0,    00);
+gpio_pin_input! (0, 0, 00);
+gpio_pin_analog!(0,    00);
+gpio_pin_irq!   (0,    00);
+gpio_pin_output!(0,    00);
 
-gpio_pin_input!(0, 00, 01);
-gpio_pin_analog!(0, 00, 01);
-gpio_pin_irq!(0, 00, 01);
-gpio_pin_output!(0, 00, 01);
+gpio_pin_pfs!   (0,    01);
+gpio_pin_input! (0, 0, 01);
+gpio_pin_analog!(0,    01);
+gpio_pin_irq!   (0,    01);
+gpio_pin_output!(0,    01);
 
-gpio_pin_input!(0, 00, 02);
-gpio_pin_analog!(0, 00, 02);
-gpio_pin_irq!(0, 00, 02);
-gpio_pin_output!(0, 00, 02);
+gpio_pin_pfs!   (0,    02);
+gpio_pin_input! (0, 0, 02);
+gpio_pin_analog!(0,    02);
+gpio_pin_irq!   (0,    02);
+gpio_pin_output!(0,    02);
 
-gpio_pin_input!(0, 00, 03);
-gpio_pin_analog!(0, 00, 03);
+gpio_pin_pfs!   (0,    03);
+gpio_pin_input! (0, 0, 03);
+gpio_pin_analog!(0,    03);
 // no_irq
-gpio_pin_output!(0, 00, 03);
+gpio_pin_output!(0,    03);
 
-gpio_pin_input!(0, 00, 04);
-gpio_pin_analog!(0, 00, 04);
-gpio_pin_irq!(0, 00, 04);
-gpio_pin_output!(0, 00, 04);
+gpio_pin_pfs!   (0,    04);
+gpio_pin_input! (0, 0, 04);
+gpio_pin_analog!(0,    04);
+gpio_pin_irq!   (0,    04);
+gpio_pin_output!(0,    04);
 
-gpio_pin_input!(0, 00, 05);
-gpio_pin_analog!(0, 00, 05);
-gpio_pin_irq!(0, 00, 05);
-gpio_pin_output!(0, 00, 05);
+gpio_pin_pfs!   (0,    05);
+gpio_pin_input! (0, 0, 05);
+gpio_pin_analog!(0,    05);
+gpio_pin_irq!   (0,    05);
+gpio_pin_output!(0,    05);
 
-gpio_pin_input!(0, 00, 06);
-gpio_pin_analog!(0, 00, 06);
-gpio_pin_irq!(0, 00, 06);
-gpio_pin_output!(0, 00, 06);
+gpio_pin_pfs!   (0,    06);
+gpio_pin_input! (0, 0, 06);
+gpio_pin_analog!(0,    06);
+gpio_pin_irq!   (0,    06);
+gpio_pin_output!(0,    06);
 
-gpio_pin_input!(0, 00, 07);
-gpio_pin_analog!(0, 00, 07);
+gpio_pin_pfs!   (0,    07);
+gpio_pin_input! (0, 0, 07);
+gpio_pin_analog!(0,    07);
 // no_irq
-gpio_pin_output!(0, 00, 07);
+gpio_pin_output!(0,    07);
 
-gpio_pin_input!(0, 008, 08);
-gpio_pin_analog!(0, 008, 08);
-gpio_pin_irq!(0, 008, 08);
-gpio_pin_output!(0, 008, 08);
+gpio_pin_pfs!   (0,    08);
+gpio_pin_input! (0, 0, 08);
+gpio_pin_analog!(0,    08);
+gpio_pin_irq!   (0,    08);
+gpio_pin_output!(0,    08);
 
-gpio_pin_input!(0, 009, 09);
-gpio_pin_analog!(0, 009, 09);
-gpio_pin_irq!(0, 009, 09);
-gpio_pin_output!(0, 009, 09);
+gpio_pin_pfs!   (0,    09);
+gpio_pin_input! (0, 0, 09);
+gpio_pin_analog!(0,    09);
+gpio_pin_irq!   (0,    09);
+gpio_pin_output!(0,    09);
 
-gpio_pin_input!(0, 010, 10);
-gpio_pin_analog!(0, 010, 10);
-gpio_pin_irq!(0, 010, 10);
-gpio_pin_output!(0, 010, 10);
+gpio_pin_pfs!   (0,    10);
+gpio_pin_input! (0, 0, 10);
+gpio_pin_analog!(0,    10);
+gpio_pin_irq!   (0,    10);
+gpio_pin_output!(0,    10);
 
-gpio_pin_input!(0, 0, 14);
-gpio_pin_analog!(0, 0, 14);
+gpio_pin_pfs!   (0,    14);
+gpio_pin_input! (0, 0, 14);
+gpio_pin_analog!(0,    14);
 // no_irq
-gpio_pin_output!(0, 0, 14);
+gpio_pin_output!(0,    14);
 
-gpio_pin_input!(0, 0, 15);
-gpio_pin_analog!(0, 0, 15);
-gpio_pin_irq!(0, 0, 15);
-gpio_pin_output!(0, 0, 15);
+gpio_pin_pfs!   (0,    15);
+gpio_pin_input! (0, 0, 15);
+gpio_pin_analog!(0,    15);
+gpio_pin_irq!   (0,    15);
+gpio_pin_output!(0,    15);

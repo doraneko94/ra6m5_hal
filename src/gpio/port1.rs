@@ -4,7 +4,10 @@ use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
-use crate::{gpio_pin_input, gpio_pin_irq_edge, gpio_pin_output};
+use crate::{
+    gpio_pin_pfs,
+    gpio_pin_alternate, gpio_pin_drive, gpio_pin_input, gpio_pin_irq_edge, gpio_pin_output
+};
 
 pub struct Port1 {
     _regs: pac::Port1
@@ -55,21 +58,114 @@ impl Port1 {
     }
 }
 
-gpio_pin_input!(1, 10, 00);
-gpio_pin_irq_edge!(1, 10, 00);
+gpio_pin_pfs!       (1,    00);
+gpio_pin_input!     (1, 1, 00);
+gpio_pin_irq_edge!  (1,    00);
+gpio_pin_output!    (1,    00);
+gpio_pin_drive!     (1,    00);
+gpio_pin_alternate! (1,    00);
 
-gpio_pin_input!(1, 10, 01);
-gpio_pin_input!(1, 10, 02);
-gpio_pin_input!(1, 10, 03);
-gpio_pin_input!(1, 10, 04);
-gpio_pin_input!(1, 10, 05);
-gpio_pin_input!(1, 10, 06);
-gpio_pin_input!(1, 10, 07);
-gpio_pin_input!(1, 10, 08);
-gpio_pin_input!(1, 10, 09);
-gpio_pin_input!(1, 1, 10);
-gpio_pin_input!(1, 1, 11);
-gpio_pin_input!(1, 1, 12);
-gpio_pin_input!(1, 1, 13);
-gpio_pin_input!(1, 1, 14);
-gpio_pin_input!(1, 1, 15);
+gpio_pin_pfs!       (1,    01);
+gpio_pin_input!     (1, 1, 01);
+gpio_pin_irq_edge!  (1,    01);
+gpio_pin_output!    (1,    01);
+gpio_pin_drive!     (1,    01);
+gpio_pin_alternate! (1,    01);
+
+gpio_pin_pfs!       (1,    02);
+gpio_pin_input!     (1, 1, 02);
+// no_irq
+gpio_pin_output!    (1,    02);
+gpio_pin_drive!     (1,    02);
+gpio_pin_alternate! (1,    02);
+
+gpio_pin_pfs!       (1,    03);
+gpio_pin_input!     (1, 1, 03);
+// no_irq
+gpio_pin_output!    (1,    03);
+gpio_pin_drive!     (1,    03);
+gpio_pin_alternate! (1,    03);
+
+gpio_pin_pfs!       (1,    04);
+gpio_pin_input!     (1, 1, 04);
+gpio_pin_irq_edge!  (1,    04);
+gpio_pin_output!    (1,    04);
+gpio_pin_drive!     (1,    04);
+gpio_pin_alternate! (1,    04);
+
+gpio_pin_pfs!       (1,    05);
+gpio_pin_input!     (1, 1, 05);
+gpio_pin_irq_edge!  (1,    05);
+gpio_pin_output!    (1,    05);
+gpio_pin_drive!     (1,    05);
+gpio_pin_alternate! (1,    05);
+
+gpio_pin_pfs!       (1,    06);
+gpio_pin_input!     (1, 1, 06);
+// no_irq
+gpio_pin_output!    (1,    06);
+gpio_pin_drive!     (1,    06);
+gpio_pin_alternate! (1,    06);
+
+gpio_pin_pfs!       (1,    07);
+gpio_pin_input!     (1, 1, 07);
+// no_irq
+gpio_pin_output!    (1,    07);
+gpio_pin_drive!     (1,    07);
+gpio_pin_alternate! (1,    07);
+
+gpio_pin_pfs!       (1,    08);
+gpio_pin_input!     (1, 1, 08);
+// no_irq
+gpio_pin_output!    (1,    08);
+gpio_pin_drive!     (1,    08);
+gpio_pin_alternate! (1,    08);
+
+gpio_pin_pfs!       (1,    09);
+gpio_pin_input!     (1, 1, 09);
+// no_irq
+gpio_pin_output!    (1,    09);
+gpio_pin_drive!     (1,    09);
+gpio_pin_alternate! (1,    09);
+
+gpio_pin_pfs!       (1,    10);
+gpio_pin_input!     (1, 1, 10);
+gpio_pin_irq_edge!  (1,    10);
+gpio_pin_output!    (1,    10);
+gpio_pin_drive!     (1,    10);
+gpio_pin_alternate! (1,    10);
+
+gpio_pin_pfs!       (1,    11);
+gpio_pin_input!     (1, 1, 11);
+gpio_pin_irq_edge!  (1,    11);
+gpio_pin_output!    (1,    11);
+gpio_pin_drive!     (1,    11);
+gpio_pin_alternate! (1,    11);
+
+gpio_pin_pfs!       (1,    12);
+gpio_pin_input!     (1, 1, 12);
+// no_irq
+gpio_pin_output!    (1,    12);
+gpio_pin_drive!     (1,    12);
+gpio_pin_alternate! (1,    12);
+
+gpio_pin_pfs!       (1,    13);
+gpio_pin_input!     (1, 1, 13);
+// no_irq
+gpio_pin_output!    (1,    13);
+gpio_pin_drive!     (1,    13);
+gpio_pin_alternate! (1,    13);
+
+gpio_pin_pfs!       (1,    14);
+gpio_pin_input!     (1, 1, 14);
+// no_irq
+gpio_pin_output!    (1,    14);
+gpio_pin_drive!     (1,    14);
+gpio_pin_alternate! (1,    14);
+
+gpio_pin_pfs!       (1,    15);
+gpio_pin_input!     (1, 1, 15);
+// no_irq
+gpio_pin_output!    (1,    15);
+gpio_pin_drive!     (1,    15);
+gpio_pin_alternate! (1,    15);

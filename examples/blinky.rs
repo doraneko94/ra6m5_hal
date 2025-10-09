@@ -22,9 +22,9 @@ fn main() -> ! {
     let mut d = delay::Delay::with_iclk(cp.SYST, 2_4000_000);
 
     loop {
-        led.set_high();
+        let _ = led.set_high();
         d.delay_ms(200);
-        led.set_low();
+        let _ = led.set_low();
         d.delay_ms(200);
     }
 }

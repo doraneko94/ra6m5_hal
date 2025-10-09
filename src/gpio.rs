@@ -19,16 +19,77 @@
 
 pub mod port0;
 pub mod port1;
+pub mod port2;
+pub mod port3;
+pub mod port4;
+pub mod port5;
+pub mod port6;
+pub mod port7;
+pub mod port8;
+pub mod port9;
+pub mod porta;
+pub mod portb;
 
 use crate::pac;
 
 use core::marker::PhantomData;
 
+pub const PFS_BASE: u32 = 0x40080800;
+
 pub struct Input<F>(PhantomData<F>);
 pub struct Output<D>(PhantomData<D>);
 pub struct Analog;
-pub struct Alternate<const AF: u8>;
 pub struct EventInput<E>(PhantomData<E>);
+pub struct Alternate;
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Podr { Low = 0, High = 1 }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Pdr { Input = 0, Output = 1 }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Pcr { Enable = 0, Disable = 1 }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Ncodr { PushPull = 0, OpenDrain = 1 }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Isel { Enable = 0, Disable = 1 }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Asel { Enable = 0, Disable = 1 }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Pmr { General = 0, Peripheral = 1 }
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Drive { Low = 0b00, Middle = 0b01, HighHigh = 0b10, High = 0b11 }
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Edge { DontCare = 0b00, Rising = 0b01, Falling = 0b10, Both = 0b11 }
+
+#[allow(non_camel_case_types)]
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Peripheral {
+    GPIO = 0b00000,
+    AGT = 0b00001,
+    GPT_0 = 0b00010, 
+    GPT_1 = 0b00011,
+    SCI_0 = 0b00100, 
+    SCI_1 = 0b00101, 
+    SPI = 0b00110, 
+    IIC = 0b00111, 
+    CLKOUT_RTC = 0b01001, 
+    CAC_ADC12 = 0b01010, 
+    BUS = 0b01011,
+    CTSU = 0b01100,
+    CANFD = 0b10000, 
+    QSPI = 0b10001, 
+    SSIE = 0b10010, 
+    USBFS = 0b10011, 
+    USBHS = 0b10100,
+    SDHI = 0b10101, 
+    ETHERC_MII = 0b10110, 
+    ETHERC_RMII = 0b10111, 
+    Trace_Debug = 0b11010, 
+    OSPI = 0b11100, 
+    CEC = 0b11101, 
+    DontCare = 0b11111,
+}
 
 pub struct Floating;
 pub struct PullUp;
@@ -38,8 +99,13 @@ pub struct Rising;
 pub struct Falling;
 pub struct Both;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum Edge { DontCare, Rising, Falling, Both }
+pub const DSCR_SHIFT: u32 = 10;
+pub const DSCR_WIDTH: u32 = 2;
+pub const DSCR_MASK : u32 = ((1u32 << DSCR_WIDTH) - 1) << DSCR_SHIFT;
+
+pub const EOFR_SHIFT: u32 = 12;
+pub const EOFR_WIDTH: u32 = 2;
+pub const EOFR_MASK : u32 = ((1u32 << EOFR_WIDTH) - 1) << EOFR_SHIFT;
 
 #[inline(always)]
 fn with_pfs<F: FnOnce()>(f: F) {
@@ -61,68 +127,106 @@ fn with_pfs<F: FnOnce()>(f: F) {
 }
 
 #[macro_export]
-macro_rules! gpio_pin_input {
-    ($port:tt, $group:tt, $id:tt) => {
+macro_rules! gpio_pin_pfs {
+    ($port:tt, $id:tt) => {
         paste! {
-            pub struct [<P $port $id>]<Mode = Input<Floating>>(PhantomData<Mode>);
-            impl<Mode> [<P $port $id>]<Mode> {
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn set_pfs(
+                    self, 
+                    podr: Option<Podr>, pdr: Option<Pdr>, pcr: Option<Pcr>, 
+                    ncodr: Option<Ncodr>, dscr: Option<Drive>, eofr: Option<Edge>, 
+                    isel: Option<Isel>, asel: Option<Asel>, pmr: Option<Pmr>, psel: Option<Peripheral>
+                ) {
+                    with_pfs(|| unsafe {
+                        let mut w = pac::PFS.[<p $port $id pfs>]().read();
+                        if let Some(value) = podr { w = w.podr().set((value as u8).into()); }
+                        if let Some(value) = pdr { w = w.pdr().set((value as u8).into()); }
+                        if let Some(value) = pcr { w = w.pcr().set((value as u8).into()); }
+                        if let Some(value) = ncodr { w = w.ncodr().set((value as u8).into()); }
+                        if let Some(value) = dscr {
+                            let bits = w.get_raw();
+                            w = w.set_raw((bits & !DSCR_MASK) | (((value as u32) << DSCR_SHIFT) & DSCR_MASK));
+                        }
+                        if let Some(value) = eofr {
+                            let bits = w.get_raw();
+                            w = w.set_raw((bits & !EOFR_MASK) | (((value as u32) << EOFR_SHIFT) & EOFR_MASK));
+                        }
+                        if let Some(value) = isel { w = w.isel().set((value as u8).into()); }
+                        if let Some(value) = asel { w = w.asel().set((value as u8).into()); }
+                        if let Some(value) = pmr { w = w.pmr().set((value as u8).into()); }
+                        if let Some(value) = psel { w = w.psel().set((value as u8).into()); }
+                        pac::PFS.[<p $port $id pfs>]().write(w);
+                    })
+                }
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! gpio_pin_input {
+    ($port:tt, $port_group:tt, $id:tt) => {
+        paste! {
+            pub struct [<P $port:upper $id>]<Mode = Input<Floating>>(PhantomData<Mode>);
+            impl<Mode> [<P $port:upper $id>]<Mode> {
                 #[inline(always)]
                 fn set_latch_high() {
                     unsafe {
-                        let w = pac::[<port $port>]::Posr::new(0).[<posr $id>]().set(pac::[<port $port>]::posr::[<Posr $id>]::_1);
-                        pac::[<PORT $port>].posr().write(w);
+                        let w = pac::[<port $port_group>]::Posr::new(0).[<posr $id>]().set(pac::[<port $port_group>]::posr::[<Posr $id>]::_1);
+                        pac::[<PORT $port:upper>].posr().write(w);
                     }
                 }
                 #[inline(always)]
                 fn set_latch_low() {
                     unsafe {
-                        let w = pac::[<port $port>]::Porr::new(0).[<porr $id>]().set(pac::[<port $port>]::porr::[<Porr $id>]::_1);
-                        pac::[<PORT $port>].porr().write(w);
+                        let w = pac::[<port $port_group>]::Porr::new(0).[<porr $id>]().set(pac::[<port $port_group>]::porr::[<Porr $id>]::_1);
+                        pac::[<PORT $port:upper>].porr().write(w);
                     }
                 }
             }
 
-            impl Default for [<P $port $id>]<Input<Floating>> {
+            impl Default for [<P $port:upper $id>]<Input<Floating>> {
                 fn default() -> Self {
                     Self(PhantomData)
                 }
             }
 
-            impl [<P $port $id>]<Input<Floating>> {
-                pub fn into_floating_input(self) -> [<P $port $id>]<Input<Floating>> {
-                    with_pfs(|| unsafe {
-                        let r = pac::PFS.[<p $port $id pfs>]().read();
-                        let w = r.pmr().set(pac::pfs::[<p $group pfs>]::Pmr::_0)
-                            .pdr().set(pac::pfs::[<p $group pfs>]::Pdr::_0)
-                            .pcr().set(pac::pfs::[<p $group pfs>]::Pcr::_0)
-                            .asel().set(pac::pfs::[<p $group pfs>]::Asel::_0)
-                            .isel().set(pac::pfs::[<p $group pfs>]::Isel::_0)
-                            .ncodr().set(pac::pfs::[<p $group pfs>]::Ncodr::_0);
-                        pac::PFS.[<p $port $id pfs>]().write(w);
-                    });
-                    Self(PhantomData)
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn into_unused_input(self) -> [<P $port:upper $id>]<Input<Floating>> {
+                    self.set_pfs(
+                        Some(Podr::Low), Some(Pdr::Input), Some(Pcr::Disable),
+                        None, None, None, 
+                        Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
+                    );
+                    [<P $port:upper $id>](PhantomData)
+                }
+            }
+            
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn into_floating_input(self) -> [<P $port:upper $id>]<Input<Floating>> {
+                    self.set_pfs(
+                        None, Some(Pdr::Input), Some(Pcr::Disable), 
+                        None, None, None, 
+                        Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
+                    );
+                    [<P $port:upper $id>](PhantomData)
                 }
 
-                pub fn into_pullup_input(self) -> [<P $port $id>]<Input<PullUp>> {
-                    with_pfs(|| unsafe {
-                        let r = pac::PFS.[<p $port $id pfs>]().read();
-                        let w = r.pmr().set(pac::pfs::[<p $group pfs>]::Pmr::_0)
-                            .pdr().set(pac::pfs::[<p $group pfs>]::Pdr::_0)
-                            .pcr().set(pac::pfs::[<p $group pfs>]::Pcr::_1)
-                            .asel().set(pac::pfs::[<p $group pfs>]::Asel::_0)
-                            .isel().set(pac::pfs::[<p $group pfs>]::Isel::_0)
-                            .ncodr().set(pac::pfs::[<p $group pfs>]::Ncodr::_0);
-                        pac::PFS.[<p $port $id pfs>]().write(w);
-                    });
-                    [<P $port $id>](PhantomData)
+                pub fn into_pullup_input(self) -> [<P $port:upper $id>]<Input<PullUp>> {
+                    self.set_pfs(
+                        None, Some(Pdr::Input), Some(Pcr::Enable), 
+                        None, None, None, 
+                        Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
+                    );
+                    [<P $port:upper $id>](PhantomData)
                 }
             }
 
-            impl<D> ErrorType for [<P $port $id>]<D> {
+            impl<D> ErrorType for [<P $port:upper $id>]<D> {
                 type Error = Infallible;
             }
 
-            impl<D> InputPin for [<P $port $id>]<Input<D>> {
+            impl<D> InputPin for [<P $port:upper $id>]<Input<D>> {
                 #[inline]
                 fn is_high(&mut self) -> Result<bool, Self::Error> {
                     Ok(self.is_high_level())
@@ -133,15 +237,15 @@ macro_rules! gpio_pin_input {
                 }
             }
 
-            impl<MODE> [<P $port $id>]<MODE> {
+            impl<MODE> [<P $port:upper $id>]<MODE> {
                 #[inline]
                 fn is_high_level(&self) -> bool {
                     unsafe {
                         // Read PCNTR.PIDRnn -> _0:Low / _1:High
-                        let r = pac::[<PORT $port>].pidr().read();
+                        let r = pac::[<PORT $port:upper>].pidr().read();
                         let v = r.[<pidr $id>]().get();
                         // enum -> bool
-                        matches!(v, pac::[<port $port>]::pidr::[<Pidr $id>]::_1)
+                        matches!(v, pac::[<port $port_group>]::pidr::[<Pidr $id>]::_1)
                     }
                 }
             }
@@ -151,16 +255,16 @@ macro_rules! gpio_pin_input {
 
 #[macro_export]
 macro_rules! gpio_pin_analog {
-    ($port:tt, $group:tt, $id:tt) => {
+    ($port:tt, $id:tt) => {
         paste! {
-            impl [<P $port $id>]<Input<Floating>> {
-                pub fn into_analog_input(self) -> [<P $port $id>]<Input<Floating>> {
-                    with_pfs(|| unsafe {
-                        let r = pac::PFS.[<p $port $id pfs>]().read();
-                        let w = r.asel().set(pac::pfs::[<p $group pfs>]::Asel::_1);
-                        pac::PFS.[<p $port $id pfs>]().write(w);
-                    });
-                    Self(PhantomData)
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn into_analog(self) -> [<P $port $id>]<Analog> {
+                    self.set_pfs(
+                        None, Some(Pdr::Input), Some(Pcr::Disable), 
+                        None, None, None, 
+                        Some(Isel::Disable), Some(Asel::Enable), Some(Pmr::General), Some(Peripheral::GPIO)
+                    );
+                    [<P $port:upper $id>](PhantomData)
                 }
             }
         }
@@ -169,19 +273,15 @@ macro_rules! gpio_pin_analog {
 
 #[macro_export]
 macro_rules! gpio_pin_irq {
-    ($port:tt, $group:tt, $id:tt) => {
+    ($port:tt, $id:tt) => {
         paste! {
-            impl [<P $port $id>]<Input<Floating>> {
-                pub fn into_irq_input(self) -> [<P $port $id>]<Input<Floating>> {
-                    with_pfs(|| unsafe {
-                        let r = pac::PFS.[<p $port $id pfs>]().read();
-                        let w = r.pmr().set(pac::pfs::[<p $group pfs>]::Pmr::_0)
-                            .pdr().set(pac::pfs::[<p $group pfs>]::Pdr::_0)
-                            .asel().set(pac::pfs::[<p $group pfs>]::Asel::_0)
-                            .isel().set(pac::pfs::[<p $group pfs>]::Isel::_1);
-                        pac::PFS.[<p $port $id pfs>]().write(w);
-                    });
-                    Self(PhantomData)
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn into_irq_input(self, pullup: Pcr) -> [<P $port:upper $id>]<Input<Floating>> {
+                    self.set_pfs(
+                        None, Some(Pdr::Input), Some(pullup), 
+                        None, None, None, 
+                        Some(Isel::Enable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO));
+                    [<P $port:upper $id>](PhantomData)
                 }
             }
         }
@@ -190,26 +290,15 @@ macro_rules! gpio_pin_irq {
 
 #[macro_export]
 macro_rules! gpio_pin_irq_edge {
-    ($port:tt, $group:tt, $id:tt) => {
+    ($port:tt, $id:tt) => {
         paste! {
-            impl [<P $port $id>]<Input<Floating>> {
-                pub fn into_irq_input_with_event_edge(self, event: Edge) -> [<P $port $id>]<Input<Floating>> {
-                    with_pfs(|| unsafe {
-                        let r = pac::PFS.[<p $port $id pfs>]().read();
-                        let eofr = match event {
-                            Edge::DontCare => pac::pfs::[<p $group pfs>]::Eofr::_00,
-                            Edge::Rising => pac::pfs::[<p $group pfs>]::Eofr::_01,
-                            Edge::Falling => pac::pfs::[<p $group pfs>]::Eofr::_10,
-                            Edge::Both => pac::pfs::[<p $group pfs>]::Eofr::_11,
-                        };
-                        let w = r.pmr().set(pac::pfs::[<p $group pfs>]::Pmr::_0)
-                            .pdr().set(pac::pfs::[<p $group pfs>]::Pdr::_0)
-                            .asel().set(pac::pfs::[<p $group pfs>]::Asel::_0)
-                            .isel().set(pac::pfs::[<p $group pfs>]::Isel::_1)
-                            .eofr().set(eofr);
-                        pac::PFS.[<p $port $id pfs>]().write(w);
-                    });
-                    Self(PhantomData)
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn into_irq_input_with_event_edge(self, event: Edge, pullup: Pcr) -> [<P $port $id>]<Input<Floating>> {
+                    self.set_pfs(
+                        None, Some(Pdr::Input), Some(pullup), 
+                        None, None, Some(event), 
+                        Some(Isel::Enable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO));
+                    [<P $port:upper $id>](PhantomData)
                 }
             }
         }
@@ -218,39 +307,40 @@ macro_rules! gpio_pin_irq_edge {
 
 #[macro_export]
 macro_rules! gpio_pin_output {
-    ($port:tt, $group:tt, $id:tt) => {
+    ($port:tt, $id:tt) => {
         paste! {
-            impl<Mode> [<P $port $id>]<Mode> {
-                pub fn into_push_pull_output(self, set_high: bool) -> [<P $port $id>]<Output<PushPull>> {
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn into_push_pull_output(self, set_high: bool) -> [<P $port:upper $id>]<Output<PushPull>> {
                     if set_high { Self::set_latch_high(); } else { Self::set_latch_low(); }
-                    with_pfs(|| unsafe {
-                        let r = pac::PFS.[<p $port $id pfs>]().read();
-                        let w = r.pmr().set(pac::pfs::[<p $group pfs>]::Pmr::_0)
-                            .asel().set(pac::pfs::[<p $group pfs>]::Asel::_0)
-                            .isel().set(pac::pfs::[<p $group pfs>]::Isel::_0)
-                            .ncodr().set(pac::pfs::[<p $group pfs>]::Ncodr::_0)
-                            .pdr().set(pac::pfs::[<p $group pfs>]::Pdr::_1);
-                        pac::PFS.[<p $port $id pfs>]().write(w);
-                    });
-                    [<P $port $id>](PhantomData)
+                    self.set_pfs(
+                        None, Some(Pdr::Output), Some(Pcr::Disable), 
+                        Some(Ncodr::PushPull), None, None, 
+                        Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
+                    );
+                    [<P $port:upper $id>](PhantomData)
                 }
 
-                pub fn into_open_drain_output_hi(self) -> [<P $port $id>]<Output<OpenDrain>> {
+                pub fn into_open_drain_output_hi(self) -> [<P $port:upper $id>]<Output<OpenDrain>> {
                     Self::set_latch_high();
-                    with_pfs(|| unsafe {
-                        let r = pac::PFS.[<p $port $id pfs>]().read();
-                        let w = r.pmr().set(pac::pfs::[<p $group pfs>]::Pmr::_0)
-                            .asel().set(pac::pfs::[<p $group pfs>]::Asel::_0)
-                            .isel().set(pac::pfs::[<p $group pfs>]::Isel::_0)
-                            .ncodr().set(pac::pfs::[<p $group pfs>]::Ncodr::_0)
-                            .pdr().set(pac::pfs::[<p $group pfs>]::Pdr::_1);
-                        pac::PFS.[<p $port $id pfs>]().write(w);
-                    });
-                    [<P $port $id>](PhantomData)
+                    self.set_pfs(
+                        None, Some(Pdr::Output), Some(Pcr::Disable), 
+                        Some(Ncodr::OpenDrain), None, None, 
+                        Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
+                    );
+                    [<P $port:upper $id>](PhantomData)
+                }
+
+                pub fn into_unused_output(self) -> [<P $port:upper $id>]<Output<PushPull>> {
+                    self.set_pfs(
+                        Some(Podr::Low), Some(Pdr::Output), Some(Pcr::Disable),
+                        None, None, None, 
+                        Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
+                    );
+                    [<P $port:upper $id>](PhantomData)
                 }
             }
 
-            impl<D> OutputPin for [<P $port $id>]<Output<D>> {
+            impl<D> OutputPin for [<P $port:upper $id>]<Output<D>> {
                 #[inline(always)]
                 fn set_high(&mut self) -> Result<(), Self::Error> {
                     Self::set_latch_high();
@@ -263,7 +353,7 @@ macro_rules! gpio_pin_output {
                 }
             }
 
-            impl<D> StatefulOutputPin for [<P $port $id>]<Output<D>> {
+            impl<D> StatefulOutputPin for [<P $port:upper $id>]<Output<D>> {
                 #[inline(always)]
                 fn is_set_high(&mut self) -> Result<bool, Self::Error> {
                     Ok(self.is_high_level())
@@ -279,6 +369,60 @@ macro_rules! gpio_pin_output {
                     } else {
                         self.set_high()
                     }
+                }
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! gpio_pin_drive {
+    ($port:tt, $id:tt) => {
+        paste! {
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                /// In some pins, HighHigh is not available.
+                pub fn set_drive_ability(self, ability: Drive) -> [<P $port:upper $id>]<Mode> {
+                    self.set_pfs(
+                        None, None, None,
+                        None, Some(ability), None,
+                        None, None, None, None
+                    );
+                    Self(PhantomData)
+                }
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! gpio_pin_alternate {
+    ($port:tt, $id:tt) => {
+        paste! {
+            impl<Mode> [<P $port:upper $id>]<Mode> {
+                pub fn into_alternate(self, peripheral: Peripheral, drive_ability: Option<Drive>) -> [<P $port:upper $id>]<Alternate> {
+                    let (pdr, ncodr, asel, pmr) = match peripheral {
+                        Peripheral::GPIO => (
+                            None, None, Some(Asel::Disable), Some(Pmr::General)
+                        ),
+                        Peripheral::IIC | Peripheral::CEC => (
+                            None, Some(Ncodr::OpenDrain), Some(Asel::Disable), Some(Pmr::General)
+                        ),
+                        Peripheral::CAC_ADC12 | Peripheral::CTSU => (
+                            None, Some(Ncodr::PushPull), Some(Asel::Enable), Some(Pmr::Peripheral)
+                        ),
+                        Peripheral::DontCare => (
+                            Some(Pdr::Input), None, Some(Asel::Disable), Some(Pmr::General)
+                        ),
+                        _ => (
+                            None, Some(Ncodr::PushPull), Some(Asel::Disable), Some(Pmr::Peripheral)
+                        )
+                    };
+                    self.set_pfs(
+                        None, pdr, None,
+                        ncodr, drive_ability, None,
+                        None, asel, pmr, Some(peripheral)
+                    );
+                    [<P $port:upper $id>](PhantomData)
                 }
             }
         }
