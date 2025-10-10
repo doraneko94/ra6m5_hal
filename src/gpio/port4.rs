@@ -1,19 +1,22 @@
-use core::convert::Infallible;
+use core::{convert::Infallible, sync::atomic::{AtomicBool, Ordering}};
 use embedded_hal::digital::{ErrorType, InputPin, StatefulOutputPin, OutputPin};
 use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
 use crate::{
-    gpio_pin_pfs,
+    AlreadyTaken, gpio_pin_pfs, 
     gpio_pin_alternate, gpio_pin_drive, gpio_pin_input, gpio_pin_irq_edge, gpio_pin_output
 };
+
+static PORT_TAKEN: AtomicBool = AtomicBool::new(false);
+struct PinToken<const N: u8>;
 
 pub struct Port4 {
     _regs: pac::Port1
 }
 
-pub struct Ports {
+pub struct Pins {
     pub p400: P400<Input<Floating>>,
     pub p401: P401<Input<Floating>>,
     pub p402: P402<Input<Floating>>,
@@ -33,27 +36,32 @@ pub struct Ports {
 }
 
 impl Port4 {
-    pub fn new(regs: pac::Port1) -> Self {
-        Self { _regs: regs }
+    pub fn take(regs: pac::Port1) -> Result<Self, AlreadyTaken> {
+        PORT_TAKEN
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .map_err(|_| AlreadyTaken)?;
+        Ok(Self {
+            _regs: regs
+        })
     }
-    pub fn split(self) -> port4::Ports {
-        Ports {
-            p400: P400::default(),
-            p401: P401::default(),
-            p402: P402::default(),
-            p403: P403::default(),
-            p404: P404::default(),
-            p405: P405::default(),
-            p406: P406::default(),
-            p407: P407::default(),
-            p408: P408::default(),
-            p409: P409::default(),
-            p410: P410::default(),
-            p411: P411::default(),
-            p412: P412::default(),
-            p413: P413::default(),
-            p414: P414::default(),
-            p415: P415::default(),
+    pub fn split(self) -> port4::Pins {
+        Pins {
+            p400: P400 { _mode: PhantomData, _token: PinToken::<00> },
+            p401: P401 { _mode: PhantomData, _token: PinToken::<01> },
+            p402: P402 { _mode: PhantomData, _token: PinToken::<02> },
+            p403: P403 { _mode: PhantomData, _token: PinToken::<03> },
+            p404: P404 { _mode: PhantomData, _token: PinToken::<04> },
+            p405: P405 { _mode: PhantomData, _token: PinToken::<05> },
+            p406: P406 { _mode: PhantomData, _token: PinToken::<06> },
+            p407: P407 { _mode: PhantomData, _token: PinToken::<07> },
+            p408: P408 { _mode: PhantomData, _token: PinToken::<08> },
+            p409: P409 { _mode: PhantomData, _token: PinToken::<09> },
+            p410: P410 { _mode: PhantomData, _token: PinToken::<10> },
+            p411: P411 { _mode: PhantomData, _token: PinToken::<11> },
+            p412: P412 { _mode: PhantomData, _token: PinToken::<12> },
+            p413: P413 { _mode: PhantomData, _token: PinToken::<13> },
+            p414: P414 { _mode: PhantomData, _token: PinToken::<14> },
+            p415: P415 { _mode: PhantomData, _token: PinToken::<15> },
         }
     }
 }

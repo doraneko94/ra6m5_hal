@@ -1,19 +1,22 @@
-use core::convert::Infallible;
+use core::{convert::Infallible, sync::atomic::{AtomicBool, Ordering}};
 use embedded_hal::digital::{ErrorType, InputPin, StatefulOutputPin, OutputPin};
 use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
 use crate::{
-    gpio_pin_pfs,
+    AlreadyTaken, gpio_pin_pfs, 
     gpio_pin_analog, gpio_pin_alternate, gpio_pin_drive, gpio_pin_input, gpio_pin_irq, gpio_pin_output
 };
+
+static PORT_TAKEN: AtomicBool = AtomicBool::new(false);
+struct PinToken<const N: u8>;
 
 pub struct Port8 {
     _regs: pac::Port0
 }
 
-pub struct Ports {
+pub struct Pins {
     pub p800: P800<Input<Floating>>,
     pub p801: P801<Input<Floating>>,
     pub p802: P802<Input<Floating>>,
@@ -24,18 +27,23 @@ pub struct Ports {
 }
 
 impl Port8 {
-    pub fn new(regs: pac::Port0) -> Self {
-        Self { _regs: regs }
+    pub fn take(regs: pac::Port0) -> Result<Self, AlreadyTaken> {
+        PORT_TAKEN
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .map_err(|_| AlreadyTaken)?;
+        Ok(Self {
+            _regs: regs
+        })
     }
-    pub fn split(self) -> port8::Ports {
-        Ports {
-            p800: P800::default(),
-            p801: P801::default(),
-            p802: P802::default(),
-            p803: P803::default(),
-            p804: P804::default(),
-            p805: P805::default(),
-            p806: P806::default(),
+    pub fn split(self) -> port8::Pins {
+        Pins {
+            p800: P800 { _mode: PhantomData, _token: PinToken::<00> },
+            p801: P801 { _mode: PhantomData, _token: PinToken::<01> },
+            p802: P802 { _mode: PhantomData, _token: PinToken::<02> },
+            p803: P803 { _mode: PhantomData, _token: PinToken::<03> },
+            p804: P804 { _mode: PhantomData, _token: PinToken::<04> },
+            p805: P805 { _mode: PhantomData, _token: PinToken::<05> },
+            p806: P806 { _mode: PhantomData, _token: PinToken::<06> },
         }
     }
 }

@@ -1,13 +1,16 @@
-use core::convert::Infallible;
+use core::{convert::Infallible, sync::atomic::{AtomicBool, Ordering}};
 use embedded_hal::digital::{ErrorType, InputPin, StatefulOutputPin, OutputPin};
 use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
 use crate::{
-    gpio_pin_pfs,
+    AlreadyTaken, gpio_pin_pfs, 
     gpio_pin_alternate, gpio_pin_drive, gpio_pin_input, gpio_pin_irq, gpio_pin_output
 };
+
+static PORT_TAKEN: AtomicBool = AtomicBool::new(false);
+struct PinToken<const N: u8>;
 
 #[inline(always)]
 pub const fn pa0pfs() -> &'static pac::common::ClusterRegisterArray<
@@ -25,12 +28,12 @@ macro_rules! gpio_pin_pfs_a {
         paste! {
             impl<Mode> [<PA0 $id>]<Mode> {
                 pub fn set_pfs(
-                    self, 
+                    &self, 
                     podr: Option<Podr>, pdr: Option<Pdr>, pcr: Option<Pcr>, 
                     ncodr: Option<Ncodr>, dscr: Option<Drive>, eofr: Option<Edge>, 
                     isel: Option<Isel>, asel: Option<Asel>, pmr: Option<Pmr>, psel: Option<Peripheral>
                 ) {
-                    with_pfs(|| unsafe {
+                    with_pfs(|_| unsafe {
                         let mut w = pa0pfs().get($id).read();
                         if let Some(value) = podr { w = w.podr().set((value as u8).into()); }
                         if let Some(value) = pdr { w = w.pdr().set((value as u8).into()); }
@@ -60,7 +63,7 @@ pub struct PortA {
     _regs: pac::Porta
 }
 
-pub struct Ports {
+pub struct Pins {
     pub pa00: PA00<Input<Floating>>,
     pub pa01: PA01<Input<Floating>>,
     pub pa08: PA08<Input<Floating>>,
@@ -69,16 +72,21 @@ pub struct Ports {
 }
 
 impl PortA {
-    pub fn new(regs: pac::Porta) -> Self {
-        Self { _regs: regs }
+    pub fn take(regs: pac::Porta) -> Result<Self, AlreadyTaken> {
+        PORT_TAKEN
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .map_err(|_| AlreadyTaken)?;
+        Ok(Self {
+            _regs: regs
+        })
     }
-    pub fn split(self) -> porta::Ports {
-        Ports {
-            pa00: PA00::default(),
-            pa01: PA01::default(),
-            pa08: PA08::default(),
-            pa09: PA09::default(),
-            pa10: PA10::default(),
+    pub fn split(self) -> porta::Pins {
+        Pins {
+            pa00: PA00 { _mode: PhantomData, _token: PinToken::<00> },
+            pa01: PA01 { _mode: PhantomData, _token: PinToken::<01> },
+            pa08: PA08 { _mode: PhantomData, _token: PinToken::<08> },
+            pa09: PA09 { _mode: PhantomData, _token: PinToken::<09> },
+            pa10: PA10 { _mode: PhantomData, _token: PinToken::<10> },
         }
     }
 }

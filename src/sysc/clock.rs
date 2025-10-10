@@ -1,6 +1,59 @@
-#![allow(dead_code)]
+/// 今回スキップ
+/// ・CGFSAR: クロック関連レジスタのセキュア・非セキュアを切り替え
+/// ・OSTDCR: 発振停止検出の設定
+/// ・OSTDSR: 発振停止検出の有無
+/// ・TRCKCR: TRCLKの分周・動作許可
+/// 
+/// 全体
+/// 書き込み前にPRCR.PRC0=1、書き込み後にPRCR.PRC0=0
+/// 
+/// システムクロック系
+/// ・SCKDIVCR: PCKABCD, BCK, ICK, FCKの分周（ICLKに応じてFLWT.FLWTを設定）
+/// ・SCKSCR: システムクロックのソース
+/// ・PLLCCR: PLLのソースと分周・逓倍（入力8~24MHz, 出力120MHz~200MHzの制限あり。HOCOがソースでUSBCLKを使用するなら、FLLを有効に。書き込み前にPLLCR.PLLSTP=1にする）
+/// ・PLLCR: PLLの動作・停止
+/// ・PLL2CCR: PLL2のソースと分周・逓倍
+/// ・PLLCR: PLL2の動作・停止
+
+/// ・MOSCCR: MOSCの動作・停止
+/// ・SOSCCR: SOSCの動作・停止
+/// ・LOCOCR: LOCOの動作・停止
+/// ・HOCOCR: HOCOの動作・停止
+/// ・HOCOCR2: HOCOの周波数を設定（OFS1と関係）
+/// ・MOCOCR: MOCOの動作・停止
+/// ・FLLCR1: FLLの無効・有効
+/// ・FLLCR2: FLLの逓倍（OFS1に合わせて設定）
+/// ・OSCSF: HOCO, MOSC, PLL, PLL2が安定しているか確認
+
+/// ・MOMCR: MOSCの周波数とソース
+/// ・SOMCR: SOSCの駆動能力
+/// ・CKOCR: CLKOUTの出力許可、ソース、分周比
+/// ・EBCKOCR: 外部バスクロックの出力許可
+/// ・USBCKDIVCR: USBCLKの分周
+/// ・OCTACKDIVCR: OCTACLKの分周
+/// ・CANFDCKDIVCR: CANFDCLKの分周
+/// ・USB60CKDIVCR: USB60CLKの分周
+/// ・CECCKDIVCR: CECCLKの分周
+/// ・USBCKCR: USBCLKのソース
+/// ・OCTACKCR: OCTACLKのソース
+/// ・CANFDCKCR: CANFDCLKのソース
+/// ・USB60CKCR: USB60CLKのソース
+/// ・CECCKCR: CECCLKのソース
+/// 
+/// ☑BCKCR: 外部バスクロックの出力変更
+/// ☑MOSCWTCR: MOSCが安定するまでの時間
+/// ☑LOCOUTCR: LOCOユーザートリミング
+/// ☑MOCOUTCR: MOCOユーザートリミング
+/// ☑HOCOUTCR: HOCOユーザートリミング
+
+//#![allow(dead_code)]
+
+use core::prelude::v1;
 
 use crate::pac;
+use crate::RegisterError;
+use crate::rtc::{Rtc, RTC_CELL};
+use super::SYSC_CELL;
 
 pub const EK_RA6M5_XTAL_HZ: u32 = 24_000_000;
 
@@ -107,9 +160,41 @@ impl PllMul {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum BClkDiv { BClk, BClkDiv2 }
-impl BClkDiv {
-    #[inline] pub fn bits(self) -> u8 { match self { Self::BClk=>0, Self::BClkDiv2=>1 } }
+pub enum StabilityTime {
+    Cycle3=0x0, Cycle35=0x1, Cycle67=0x2, Cycle131=0x3, Cycle259=0x4, Cycle547=0x5,
+    Cycle1059=0x6, Cycle2147=0x7, Cycle4291=0x8, Cycle8163=0x9
+}
+impl StabilityTime {
+    pub fn cycle(self) -> u32 {
+        match self {
+            Self::Cycle3=>3, Self::Cycle35=>35, Self::Cycle67=>67, Self::Cycle131=>131, Self::Cycle259=>259, Self::Cycle547=>547,
+            Self::Cycle1059=>1059, Self::Cycle2147=>2147, Self::Cycle4291=>4291, Self::Cycle8163=>8163
+        }
+    }
+    pub fn us(self) -> f32 { 1.0 / (0.032768 * 8.0) * self.cycle() as f32 }
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0x0 => Some(Self::Cycle3),
+            0x1 => Some(Self::Cycle35),
+            0x2 => Some(Self::Cycle67),
+            0x3 => Some(Self::Cycle131),
+            0x4 => Some(Self::Cycle259),
+            0x5 => Some(Self::Cycle547),
+            0x6 => Some(Self::Cycle1059),
+            0x7 => Some(Self::Cycle2147),
+            0x8 => Some(Self::Cycle4291),
+            0x9 => Some(Self::Cycle8163),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Ebclk { BClk = 0, BClkDiv2 = 1 }
+impl Ebclk {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value { 0 => Some(Self::BClk), 1 => Some(Self::BClkDiv2), _ => None }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -163,10 +248,7 @@ pub struct SysDiv {
     pub pckc: Div2Pow,  // ick / X
     pub pckd: Div2Pow,  // ick / X
     pub fck: Div2Pow,   // ick / X
-    pub bck: Div2Pow,   // bck / X
-   
-    /// EBCLK
-    pub ebck: Div2Pow,
+    pub bck: Div2Pow,   // ick / X
 }
 impl SysDiv {
     fn highest_freq_200mhz() -> Self {
@@ -178,26 +260,24 @@ impl SysDiv {
             pckd: Div2Pow::Div2,
             fck: Div2Pow::Div4,
             bck: Div2Pow::Div2,
-            ebck: Div2Pow::Div2,
         }
     }
 }
 impl Default for SysDiv {
     fn default() -> Self {
         Self {
-            ick: Div2Pow::Div1,
-            pcka: Div2Pow::Div2,    // 100MHz
-            pckb: Div2Pow::Div4,    //  25MHz
-            pckc: Div2Pow::Div4,    //  50MHz
-            pckd: Div2Pow::Div2,    //  25MHz
-            fck: Div2Pow::Div4,     //  50MHz
-            bck: Div2Pow::Div2,     // 100MHz
-            ebck: Div2Pow::Div2,
+            ick: Div2Pow::Div4,
+            pcka: Div2Pow::Div4,
+            pckb: Div2Pow::Div4,
+            pckc: Div2Pow::Div4,
+            pckd: Div2Pow::Div4,
+            fck: Div2Pow::Div4,
+            bck: Div2Pow::Div4,
         }
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+/*#[derive(Copy, Clone, Debug)]
 pub enum EbclkDiv { Div1, Div2, Div4, Div8, Div16 }
 impl EbclkDiv {
     #[inline] pub fn ratio(self) -> u32 {
@@ -208,7 +288,7 @@ impl EbclkDiv {
     }
 }
 #[derive(Copy, Clone, Debug)]
-pub struct EbckoCfg { pub enable: bool, pub div: EbclkDiv }
+pub struct EbckoCfg { pub enable: bool, pub div: EbclkDiv }*/
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Limits {
@@ -216,7 +296,7 @@ pub struct Limits {
     pub ebclk_hs_max_hz: Option<u32>,
 }
 
-#[derive(Copy, Clone, Debug)]
+/*#[derive(Copy, Clone, Debug)]
 pub struct  Config {
     pub mode: Mode,
     pub source: Source,
@@ -225,7 +305,7 @@ pub struct  Config {
     pub ebcko: Option<EbckoCfg>,
     pub use_adc: bool,
 }
-/*impl Config {
+impl Config {
     fn ek_ra6m5_highest_freq() -> Self {
         Self {
             mode: Mode::HighSpeed,
@@ -395,10 +475,118 @@ pub enum Error {
     Ok(())
 }*/
 
+pub struct Clocks;
+
+impl Clocks {
+    fn _with_cs<R>(&mut self, f: impl FnOnce(&mut pac::Sysc) -> R) -> R {
+        critical_section::with(|cs| {
+            let mut bor = SYSC_CELL.borrow(cs).borrow_mut();
+            let sysc = bor.as_mut().expect("SYSC not initialized");
+
+            f(sysc)
+        })
+    }
+    fn _with_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc) -> R) -> R {
+        self._with_cs(|sysc| {
+            unsafe {
+                _prc0(sysc, true);
+                let r = f(sysc);
+                _prc0(sysc, false);
+                r
+            }
+        })
+    }
+    fn _with_cs_rtc<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
+        critical_section::with(|cs| {
+            let mut bor_sysc = SYSC_CELL.borrow(cs).borrow_mut();
+            let sysc = bor_sysc.as_mut().expect("SYSC not initialized");
+            let mut bor_rtc = RTC_CELL.borrow(cs).borrow_mut();
+            let rtc = bor_rtc.as_mut().expect("RTC not initialized");
+
+            f(sysc, rtc)
+        })
+    }
+    fn _with_cs_rtc_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
+        self._with_cs_rtc(|sysc, rtc| {
+            unsafe {
+                _prc0(sysc, true);
+                let r = f(sysc, rtc);
+                _prc0(sysc, false);
+                r
+            }
+        })
+    }
+    // pub fn get_system_clock_status(&mut self) {}
+    pub fn set_mosc_stabilization_time(&mut self, cycle: StabilityTime) -> Result<(), RegisterError> {
+        self._with_prcr(|sysc| { unsafe {
+            let mostp_is_1 = sysc.mosccr().read().mostp().get() == pac::sysc::mosccr::Mostp::_1;
+            let moscsf_is_0 = sysc.oscsf().read().moscsf().get() == pac::sysc::oscsf::Moscsf::_0;
+            if mostp_is_1 && moscsf_is_0 {
+                sysc.moscwtcr().write(
+                    sysc.moscwtcr().read().msts().set((cycle as u8).into())
+                );
+                Ok(())
+            } else {
+                Err(RegisterError::NotReadyToWrite)
+            }
+        } })
+    }
+    pub fn get_external_bus_clock(&mut self) -> Option<Ebclk> {
+        self._with_cs(|sysc| { unsafe {
+            Ebclk::from_u8(sysc.bckcr().read().bclkdiv().get().0)
+        } })
+    }
+    pub fn set_external_bus_clock(&mut self, div: Ebclk) -> Result<(), RegisterError> {
+        self._with_prcr(|sysc| { unsafe {
+            sysc.bckcr().write(pac::sysc::Bckcr::default().bclkdiv().set((div as u8).into()));
+            Ok(())
+        } })
+    }
+    /*pub fn get_loco_user_trimming(&mut self) -> i8 {
+        self._with_cs(|sysc| { unsafe {
+            let u = sysc.locoutcr().read().locoutrm().get();
+            0
+        } })
+    }*/
+    pub fn set_loco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
+        self._with_cs_rtc_prcr(|sysc, rtc| { unsafe {
+            if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
+                let w = sysc.locoutcr().read().locoutrm().set((trimming as i16 + 128 + 0x80) as u8);
+                sysc.locoutcr().write(w);
+                Ok(())
+            } else {
+                Err(RegisterError::NotReadyToWrite)
+            }
+        } })
+    }
+    pub fn set_moco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
+        self._with_cs_rtc_prcr(|sysc, rtc| { unsafe {
+            if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
+                let w = sysc.mocoutcr().read().mocoutrm().set((trimming as i16 + 128 + 0x80) as u8);
+                sysc.mocoutcr().write(w);
+                Ok(())
+            } else {
+                Err(RegisterError::NotReadyToWrite)
+            }
+        } })
+    }
+    pub fn set_hoco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
+        self._with_cs_rtc_prcr(|sysc, rtc| { unsafe {
+            if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
+                let w = sysc.hocoutcr().read().hocoutrm().set((trimming as i16 + 128 + 0x80) as u8);
+                sysc.hocoutcr().write(w);
+                Ok(())
+            } else {
+                Err(RegisterError::NotReadyToWrite)
+            }
+        } })
+    }
+}
+
 /// PRCR (PRKEY=0xA5, PRC0=1/0)
-unsafe fn prc0(enable: bool) {
+unsafe fn _prc0(sysc: &mut pac::Sysc, enable: bool) {
     unsafe {
-        pac::SYSC.prcr().write(
+        sysc.prcr().write(
         pac::sysc::Prcr::default()
             .prkey().set(0xA5)
             .prc0().set(if enable { pac::sysc::prcr::Prc0::_1 } else { pac::sysc::prcr::Prc0::_0 })

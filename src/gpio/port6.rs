@@ -1,19 +1,22 @@
-use core::convert::Infallible;
+use core::{convert::Infallible, sync::atomic::{AtomicBool, Ordering}};
 use embedded_hal::digital::{ErrorType, InputPin, StatefulOutputPin, OutputPin};
 use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
 use crate::{
-    gpio_pin_pfs,
+    AlreadyTaken, gpio_pin_pfs, 
     gpio_pin_alternate, gpio_pin_drive, gpio_pin_input, gpio_pin_irq, gpio_pin_output
 };
+
+static PORT_TAKEN: AtomicBool = AtomicBool::new(false);
+struct PinToken<const N: u8>;
 
 pub struct Port6 {
     _regs: pac::Port0
 }
 
-pub struct Ports {
+pub struct Pins {
     pub p600: P600<Input<Floating>>,
     pub p601: P601<Input<Floating>>,
     pub p602: P602<Input<Floating>>,
@@ -33,27 +36,32 @@ pub struct Ports {
 }
 
 impl Port6 {
-    pub fn new(regs: pac::Port0) -> Self {
-        Self { _regs: regs }
+    pub fn take(regs: pac::Port0) -> Result<Self, AlreadyTaken> {
+        PORT_TAKEN
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .map_err(|_| AlreadyTaken)?;
+        Ok(Self {
+            _regs: regs
+        })
     }
-    pub fn split(self) -> port6::Ports {
-        Ports {
-            p600: P600::default(),
-            p601: P601::default(),
-            p602: P602::default(),
-            p603: P603::default(),
-            p604: P604::default(),
-            p605: P605::default(),
-            p606: P606::default(),
-            p607: P607::default(),
-            p608: P608::default(),
-            p609: P609::default(),
-            p610: P610::default(),
-            p611: P611::default(),
-            p612: P612::default(),
-            p613: P613::default(),
-            p614: P614::default(),
-            p615: P615::default(),
+    pub fn split(self) -> port6::Pins {
+        Pins {
+            p600: P600 { _mode: PhantomData, _token: PinToken::<00> },
+            p601: P601 { _mode: PhantomData, _token: PinToken::<01> },
+            p602: P602 { _mode: PhantomData, _token: PinToken::<02> },
+            p603: P603 { _mode: PhantomData, _token: PinToken::<03> },
+            p604: P604 { _mode: PhantomData, _token: PinToken::<04> },
+            p605: P605 { _mode: PhantomData, _token: PinToken::<05> },
+            p606: P606 { _mode: PhantomData, _token: PinToken::<06> },
+            p607: P607 { _mode: PhantomData, _token: PinToken::<07> },
+            p608: P608 { _mode: PhantomData, _token: PinToken::<08> },
+            p609: P609 { _mode: PhantomData, _token: PinToken::<09> },
+            p610: P610 { _mode: PhantomData, _token: PinToken::<10> },
+            p611: P611 { _mode: PhantomData, _token: PinToken::<11> },
+            p612: P612 { _mode: PhantomData, _token: PinToken::<12> },
+            p613: P613 { _mode: PhantomData, _token: PinToken::<13> },
+            p614: P614 { _mode: PhantomData, _token: PinToken::<14> },
+            p615: P615 { _mode: PhantomData, _token: PinToken::<15> },
         }
     }
 }

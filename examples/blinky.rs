@@ -13,7 +13,7 @@ use ra6m5_hal::{gpio, delay};
 fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
-    let p0 = gpio::port0::Port0::new(dp.PORT0);
+    let p0 = gpio::port0::Port0::take(dp.PORT0).unwrap();
     let ports = p0.split();
 
     let mut led = ports.p006.into_push_pull_output(false);

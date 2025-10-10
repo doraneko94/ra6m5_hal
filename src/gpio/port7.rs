@@ -1,13 +1,16 @@
-use core::convert::Infallible;
+use core::{convert::Infallible, sync::atomic::{AtomicBool, Ordering}};
 use embedded_hal::digital::{ErrorType, InputPin, StatefulOutputPin, OutputPin};
 use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
 use crate::{
-    gpio_pin_pfs, 
+    AlreadyTaken, gpio_pin_pfs, 
     gpio_pin_alternate, gpio_pin_drive, gpio_pin_input, gpio_pin_irq, gpio_pin_output
 };
+
+static PORT_TAKEN: AtomicBool = AtomicBool::new(false);
+struct PinToken<const N: u8>;
 
 #[inline(always)]
 pub const fn p70pfs() -> &'static pac::common::ClusterRegisterArray<
@@ -25,12 +28,12 @@ macro_rules! gpio_pin_pfs_7 {
         paste! {
             impl<Mode> [<P70 $id>]<Mode> {
                 pub fn set_pfs(
-                    self, 
+                    &self, 
                     podr: Option<Podr>, pdr: Option<Pdr>, pcr: Option<Pcr>, 
                     ncodr: Option<Ncodr>, dscr: Option<Drive>, eofr: Option<Edge>, 
                     isel: Option<Isel>, asel: Option<Asel>, pmr: Option<Pmr>, psel: Option<Peripheral>
                 ) {
-                    with_pfs(|| unsafe {
+                    with_pfs(|_| unsafe {
                         let mut w = p70pfs().get($id).read();
                         if let Some(value) = podr { w = w.podr().set((value as u8).into()); }
                         if let Some(value) = pdr { w = w.pdr().set((value as u8).into()); }
@@ -60,7 +63,7 @@ pub struct Port7 {
     _regs: pac::Port0
 }
 
-pub struct Ports {
+pub struct Pins {
     pub p700: P700<Input<Floating>>,
     pub p701: P701<Input<Floating>>,
     pub p702: P702<Input<Floating>>,
@@ -78,25 +81,30 @@ pub struct Ports {
 }
 
 impl Port7 {
-    pub fn new(regs: pac::Port0) -> Self {
-        Self { _regs: regs }
+    pub fn take(regs: pac::Port0) -> Result<Self, AlreadyTaken> {
+        PORT_TAKEN
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .map_err(|_| AlreadyTaken)?;
+        Ok(Self {
+            _regs: regs
+        })
     }
-    pub fn split(self) -> port7::Ports {
-        Ports {
-            p700: P700::default(),
-            p701: P701::default(),
-            p702: P702::default(),
-            p703: P703::default(),
-            p704: P704::default(),
-            p705: P705::default(),
-            p706: P706::default(),
-            p707: P707::default(),
-            p708: P708::default(),
-            p709: P709::default(),
-            p710: P710::default(),
-            p711: P711::default(),
-            p712: P712::default(),
-            p713: P713::default(),
+    pub fn split(self) -> port7::Pins {
+        Pins {
+            p700: P700 { _mode: PhantomData, _token: PinToken::<00> },
+            p701: P701 { _mode: PhantomData, _token: PinToken::<01> },
+            p702: P702 { _mode: PhantomData, _token: PinToken::<02> },
+            p703: P703 { _mode: PhantomData, _token: PinToken::<03> },
+            p704: P704 { _mode: PhantomData, _token: PinToken::<04> },
+            p705: P705 { _mode: PhantomData, _token: PinToken::<05> },
+            p706: P706 { _mode: PhantomData, _token: PinToken::<06> },
+            p707: P707 { _mode: PhantomData, _token: PinToken::<07> },
+            p708: P708 { _mode: PhantomData, _token: PinToken::<08> },
+            p709: P709 { _mode: PhantomData, _token: PinToken::<09> },
+            p710: P710 { _mode: PhantomData, _token: PinToken::<10> },
+            p711: P711 { _mode: PhantomData, _token: PinToken::<11> },
+            p712: P712 { _mode: PhantomData, _token: PinToken::<12> },
+            p713: P713 { _mode: PhantomData, _token: PinToken::<13> },
         }
     }
 }

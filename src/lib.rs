@@ -1,13 +1,23 @@
 #![no_std]
 
-pub mod clock;
 pub mod delay;
 pub mod fcache;
 pub mod flad;
 pub mod gpio;
 pub mod register_protection;
+pub mod rtc;
+pub mod sysc;
 
 pub use ra6m5_pac as pac;
+
+#[derive(Debug)]
+pub struct AlreadyTaken;
+#[derive(Debug)]
+pub enum InitError { AlreadyInit }
+#[derive(Debug)]
+pub enum RegisterError {
+    NotReadyToWrite
+}
 
 pub struct Hal {
     pub pac: pac::Peripherals,

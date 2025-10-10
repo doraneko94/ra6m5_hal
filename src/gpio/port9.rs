@@ -1,13 +1,16 @@
-use core::convert::Infallible;
+use core::{convert::Infallible, sync::atomic::{AtomicBool, Ordering}};
 use embedded_hal::digital::{ErrorType, InputPin, StatefulOutputPin, OutputPin};
 use ra6m5_pac::RegisterValue;
 use paste::paste;
 
 use super::*;
 use crate::{
-    gpio_pin_pfs,
+    AlreadyTaken, gpio_pin_pfs, 
     gpio_pin_alternate, gpio_pin_drive, gpio_pin_input, gpio_pin_irq, gpio_pin_output
 };
+
+static PORT_TAKEN: AtomicBool = AtomicBool::new(false);
+struct PinToken<const N: u8>;
 
 #[inline(always)]
 pub const fn p90pfs() -> &'static pac::common::ClusterRegisterArray<
@@ -25,12 +28,12 @@ macro_rules! gpio_pin_pfs_9 {
         paste! {
             impl<Mode> [<P90 $id>]<Mode> {
                 pub fn set_pfs(
-                    self, 
+                    &self, 
                     podr: Option<Podr>, pdr: Option<Pdr>, pcr: Option<Pcr>, 
                     ncodr: Option<Ncodr>, dscr: Option<Drive>, eofr: Option<Edge>, 
                     isel: Option<Isel>, asel: Option<Asel>, pmr: Option<Pmr>, psel: Option<Peripheral>
                 ) {
-                    with_pfs(|| unsafe {
+                    with_pfs(|_| unsafe {
                         let mut w = p90pfs().get($id).read();
                         if let Some(value) = podr { w = w.podr().set((value as u8).into()); }
                         if let Some(value) = pdr { w = w.pdr().set((value as u8).into()); }
@@ -60,7 +63,7 @@ pub struct Port9 {
     _regs: pac::Port0
 }
 
-pub struct Ports {
+pub struct Pins {
     pub p900: P900<Input<Floating>>,
     pub p901: P901<Input<Floating>>,
     pub p905: P905<Input<Floating>>,
@@ -70,17 +73,22 @@ pub struct Ports {
 }
 
 impl Port9 {
-    pub fn new(regs: pac::Port0) -> Self {
-        Self { _regs: regs }
+    pub fn take(regs: pac::Port0) -> Result<Self, AlreadyTaken> {
+        PORT_TAKEN
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
+            .map_err(|_| AlreadyTaken)?;
+        Ok(Self {
+            _regs: regs
+        })
     }
-    pub fn split(self) -> port9::Ports {
-        Ports {
-            p900: P900::default(),
-            p901: P901::default(),
-            p905: P905::default(),
-            p906: P906::default(),
-            p907: P907::default(),
-            p908: P908::default(),
+    pub fn split(self) -> port9::Pins {
+        Pins {
+            p900: P900 { _mode: PhantomData, _token: PinToken::<00> },
+            p901: P901 { _mode: PhantomData, _token: PinToken::<01> },
+            p905: P905 { _mode: PhantomData, _token: PinToken::<05> },
+            p906: P906 { _mode: PhantomData, _token: PinToken::<06> },
+            p907: P907 { _mode: PhantomData, _token: PinToken::<07> },
+            p908: P908 { _mode: PhantomData, _token: PinToken::<08> },
         }
     }
 }

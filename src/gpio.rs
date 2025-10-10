@@ -107,22 +107,25 @@ pub const EOFR_SHIFT: u32 = 12;
 pub const EOFR_WIDTH: u32 = 2;
 pub const EOFR_MASK : u32 = ((1u32 << EOFR_WIDTH) - 1) << EOFR_SHIFT;
 
+
+
 #[inline(always)]
-fn with_pfs<F: FnOnce()>(f: F) {
+fn with_pfs<F: FnOnce(pac::Pfs)>(f: F) {
     unsafe {
-        let r = pac::PFS.pwpr().read();
+        let pfs = pac::PFS;
+        let r = pfs.pwpr().read();
         let w_b0wi_0 = r.b0wi().set(pac::pfs::pwpr::B0Wi::_0);
-        pac::PFS.pwpr().write(w_b0wi_0);
+        pfs.pwpr().write(w_b0wi_0);
 
         let w_pfswe_1 = r.pfswe().set(pac::pfs::pwpr::Pfswe::_1);
-        pac::PFS.pwpr().write(w_pfswe_1);
+        pfs.pwpr().write(w_pfswe_1);
 
-        f();
+        f(pfs);
 
         let w_pfswe_0 = r.pfswe().set(pac::pfs::pwpr::Pfswe::_0);
-        pac::PFS.pwpr().write(w_pfswe_0);
+        pfs.pwpr().write(w_pfswe_0);
         let w_b0wi_1 = r.b0wi().set(pac::pfs::pwpr::B0Wi::_1);
-        pac::PFS.pwpr().write(w_b0wi_1);
+        pfs.pwpr().write(w_b0wi_1);
     }
 }
 
@@ -132,13 +135,13 @@ macro_rules! gpio_pin_pfs {
         paste! {
             impl<Mode> [<P $port:upper $id>]<Mode> {
                 pub fn set_pfs(
-                    self, 
+                    &self, 
                     podr: Option<Podr>, pdr: Option<Pdr>, pcr: Option<Pcr>, 
                     ncodr: Option<Ncodr>, dscr: Option<Drive>, eofr: Option<Edge>, 
                     isel: Option<Isel>, asel: Option<Asel>, pmr: Option<Pmr>, psel: Option<Peripheral>
                 ) {
-                    with_pfs(|| unsafe {
-                        let mut w = pac::PFS.[<p $port $id pfs>]().read();
+                    with_pfs(|pfs| unsafe {
+                        let mut w = pfs.[<p $port $id pfs>]().read();
                         if let Some(value) = podr { w = w.podr().set((value as u8).into()); }
                         if let Some(value) = pdr { w = w.pdr().set((value as u8).into()); }
                         if let Some(value) = pcr { w = w.pcr().set((value as u8).into()); }
@@ -155,7 +158,7 @@ macro_rules! gpio_pin_pfs {
                         if let Some(value) = asel { w = w.asel().set((value as u8).into()); }
                         if let Some(value) = pmr { w = w.pmr().set((value as u8).into()); }
                         if let Some(value) = psel { w = w.psel().set((value as u8).into()); }
-                        pac::PFS.[<p $port $id pfs>]().write(w);
+                        pfs.[<p $port $id pfs>]().write(w);
                     })
                 }
             }
@@ -167,7 +170,10 @@ macro_rules! gpio_pin_pfs {
 macro_rules! gpio_pin_input {
     ($port:tt, $port_group:tt, $id:tt) => {
         paste! {
-            pub struct [<P $port:upper $id>]<Mode = Input<Floating>>(PhantomData<Mode>);
+            pub struct [<P $port:upper $id>]<Mode = Input<Floating>> {
+                _mode: PhantomData<Mode>,
+                _token: PinToken<$id>
+            }
             impl<Mode> [<P $port:upper $id>]<Mode> {
                 #[inline(always)]
                 fn set_latch_high() {
@@ -185,12 +191,6 @@ macro_rules! gpio_pin_input {
                 }
             }
 
-            impl Default for [<P $port:upper $id>]<Input<Floating>> {
-                fn default() -> Self {
-                    Self(PhantomData)
-                }
-            }
-
             impl<Mode> [<P $port:upper $id>]<Mode> {
                 pub fn into_unused_input(self) -> [<P $port:upper $id>]<Input<Floating>> {
                     self.set_pfs(
@@ -198,7 +198,7 @@ macro_rules! gpio_pin_input {
                         None, None, None, 
                         Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
             
@@ -209,7 +209,7 @@ macro_rules! gpio_pin_input {
                         None, None, None, 
                         Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
 
                 pub fn into_pullup_input(self) -> [<P $port:upper $id>]<Input<PullUp>> {
@@ -218,7 +218,7 @@ macro_rules! gpio_pin_input {
                         None, None, None, 
                         Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
 
@@ -264,7 +264,7 @@ macro_rules! gpio_pin_analog {
                         None, None, None, 
                         Some(Isel::Disable), Some(Asel::Enable), Some(Pmr::General), Some(Peripheral::GPIO)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
         }
@@ -281,7 +281,7 @@ macro_rules! gpio_pin_irq {
                         None, Some(Pdr::Input), Some(pullup), 
                         None, None, None, 
                         Some(Isel::Enable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO));
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
         }
@@ -298,7 +298,7 @@ macro_rules! gpio_pin_irq_edge {
                         None, Some(Pdr::Input), Some(pullup), 
                         None, None, Some(event), 
                         Some(Isel::Enable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO));
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
         }
@@ -317,7 +317,7 @@ macro_rules! gpio_pin_output {
                         Some(Ncodr::PushPull), None, None, 
                         Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
 
                 pub fn into_open_drain_output_hi(self) -> [<P $port:upper $id>]<Output<OpenDrain>> {
@@ -327,7 +327,7 @@ macro_rules! gpio_pin_output {
                         Some(Ncodr::OpenDrain), None, None, 
                         Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
 
                 pub fn into_unused_output(self) -> [<P $port:upper $id>]<Output<PushPull>> {
@@ -336,7 +336,7 @@ macro_rules! gpio_pin_output {
                         None, None, None, 
                         Some(Isel::Disable), Some(Asel::Disable), Some(Pmr::General), Some(Peripheral::GPIO)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
 
@@ -387,7 +387,7 @@ macro_rules! gpio_pin_drive {
                         None, Some(ability), None,
                         None, None, None, None
                     );
-                    Self(PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
         }
@@ -422,7 +422,7 @@ macro_rules! gpio_pin_alternate {
                         ncodr, drive_ability, None,
                         None, asel, pmr, Some(peripheral)
                     );
-                    [<P $port:upper $id>](PhantomData)
+                    [<P $port:upper $id>] { _mode: PhantomData, _token: self._token }
                 }
             }
         }
