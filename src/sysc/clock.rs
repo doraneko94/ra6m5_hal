@@ -53,7 +53,8 @@ use core::prelude::v1;
 use crate::pac;
 use crate::RegisterError;
 use crate::rtc::{Rtc, RTC_CELL};
-use super::SYSC_CELL;
+use super::_is_prc0;
+use super::{SYSC_CELL, _prc0};
 
 pub const EK_RA6M5_XTAL_HZ: u32 = 24_000_000;
 
@@ -487,13 +488,11 @@ impl Clocks {
         })
     }
     fn _with_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc) -> R) -> R {
-        self._with_cs(|sysc| {
-            unsafe {
-                _prc0(sysc, true);
-                let r = f(sysc);
-                _prc0(sysc, false);
-                r
-            }
+        self._with_cs(|sysc| unsafe {
+            _prc0(sysc, true);
+            let r = f(sysc);
+            _prc0(sysc, false);
+            r
         })
     }
     fn _with_cs_rtc<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
@@ -507,18 +506,27 @@ impl Clocks {
         })
     }
     fn _with_cs_rtc_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
-        self._with_cs_rtc(|sysc, rtc| {
-            unsafe {
-                _prc0(sysc, true);
-                let r = f(sysc, rtc);
-                _prc0(sysc, false);
-                r
-            }
+        self._with_cs_rtc(|sysc, rtc| unsafe {
+            _prc0(sysc, true);
+            let r = f(sysc, rtc);
+            _prc0(sysc, false);
+            r
         })
+    }
+    pub fn clock_write_enable(&mut self) -> Result<(), RegisterError> {
+        self._with_cs(|sysc| unsafe { _prc0(sysc, true); });
+        Ok(())
+    }
+    pub fn clock_write_disable(&mut self) -> Result<(), RegisterError> {
+        self._with_cs(|sysc| unsafe { _prc0(sysc, false); });
+        Ok(())
+    }
+    pub fn clock_write_is_enabled(&mut self) -> bool {
+        self._with_cs(|sysc| unsafe { _is_prc0(sysc) })
     }
     // pub fn get_system_clock_status(&mut self) {}
     pub fn set_mosc_stabilization_time(&mut self, cycle: StabilityTime) -> Result<(), RegisterError> {
-        self._with_prcr(|sysc| { unsafe {
+        self._with_prcr(|sysc| unsafe {
             let mostp_is_1 = sysc.mosccr().read().mostp().get() == pac::sysc::mosccr::Mostp::_1;
             let moscsf_is_0 = sysc.oscsf().read().moscsf().get() == pac::sysc::oscsf::Moscsf::_0;
             if mostp_is_1 && moscsf_is_0 {
@@ -529,18 +537,18 @@ impl Clocks {
             } else {
                 Err(RegisterError::NotReadyToWrite)
             }
-        } })
+        })
     }
     pub fn get_external_bus_clock(&mut self) -> Option<Ebclk> {
-        self._with_cs(|sysc| { unsafe {
+        self._with_cs(|sysc| unsafe {
             Ebclk::from_u8(sysc.bckcr().read().bclkdiv().get().0)
-        } })
+        })
     }
     pub fn set_external_bus_clock(&mut self, div: Ebclk) -> Result<(), RegisterError> {
-        self._with_prcr(|sysc| { unsafe {
-            sysc.bckcr().write(pac::sysc::Bckcr::default().bclkdiv().set((div as u8).into()));
-            Ok(())
-        } })
+        self._with_prcr(|sysc| unsafe {
+            sysc.bckcr().write(pac::sysc::Bckcr::default().bclkdiv().set((div as u8).into())); 
+        });
+        Ok(())
     }
     /*pub fn get_loco_user_trimming(&mut self) -> i8 {
         self._with_cs(|sysc| { unsafe {
@@ -549,7 +557,7 @@ impl Clocks {
         } })
     }*/
     pub fn set_loco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
-        self._with_cs_rtc_prcr(|sysc, rtc| { unsafe {
+        self._with_cs_rtc_prcr(|sysc, rtc| unsafe {
             if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
                 let w = sysc.locoutcr().read().locoutrm().set((trimming as i16 + 128 + 0x80) as u8);
                 sysc.locoutcr().write(w);
@@ -557,10 +565,10 @@ impl Clocks {
             } else {
                 Err(RegisterError::NotReadyToWrite)
             }
-        } })
+        })
     }
     pub fn set_moco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
-        self._with_cs_rtc_prcr(|sysc, rtc| { unsafe {
+        self._with_cs_rtc_prcr(|sysc, rtc| unsafe {
             if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
                 let w = sysc.mocoutcr().read().mocoutrm().set((trimming as i16 + 128 + 0x80) as u8);
                 sysc.mocoutcr().write(w);
@@ -568,10 +576,10 @@ impl Clocks {
             } else {
                 Err(RegisterError::NotReadyToWrite)
             }
-        } })
+        })
     }
     pub fn set_hoco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
-        self._with_cs_rtc_prcr(|sysc, rtc| { unsafe {
+        self._with_cs_rtc_prcr(|sysc, rtc| unsafe {
             if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
                 let w = sysc.hocoutcr().read().hocoutrm().set((trimming as i16 + 128 + 0x80) as u8);
                 sysc.hocoutcr().write(w);
@@ -579,18 +587,7 @@ impl Clocks {
             } else {
                 Err(RegisterError::NotReadyToWrite)
             }
-        } })
-    }
-}
-
-/// PRCR (PRKEY=0xA5, PRC0=1/0)
-unsafe fn _prc0(sysc: &mut pac::Sysc, enable: bool) {
-    unsafe {
-        sysc.prcr().write(
-        pac::sysc::Prcr::default()
-            .prkey().set(0xA5)
-            .prc0().set(if enable { pac::sysc::prcr::Prc0::_1 } else { pac::sysc::prcr::Prc0::_0 })
-        );
+        })
     }
 }
 

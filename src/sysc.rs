@@ -23,3 +23,19 @@ impl Sysc {
         Ok((clock::Clocks, mstp::Mstp))
     }
 }
+
+unsafe fn _prc0(sysc: &mut pac::Sysc, enable: bool) {
+    unsafe {
+        sysc.prcr().write(
+        pac::sysc::Prcr::default()
+            .prkey().set(0xA5)
+            .prc0().set(if enable { pac::sysc::prcr::Prc0::_1 } else { pac::sysc::prcr::Prc0::_0 })
+        );
+    }
+}
+
+unsafe fn _is_prc0(sysc: &mut pac::Sysc) -> bool {
+    unsafe {
+        sysc.prcr().read().prc0().get() == pac::sysc::prcr::Prc0::_1
+    }
+}
