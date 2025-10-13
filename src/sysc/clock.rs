@@ -10,12 +10,19 @@
 /// システムクロック系
 /// ・SCKDIVCR: PCKABCD, BCK, ICK, FCKの分周（ICLKに応じてFLWT.FLWTを設定）
 /// ・SCKSCR: システムクロックのソース
+/// 
 /// ・PLLCCR: PLLのソースと分周・逓倍（入力8~24MHz, 出力120MHz~200MHzの制限あり。HOCOがソースでUSBCLKを使用するなら、FLLを有効に。書き込み前にPLLCR.PLLSTP=1にする）
 /// ・PLLCR: PLLの動作・停止
-/// ・PLL2CCR: PLL2のソースと分周・逓倍
-/// ・PLLCR: PLL2の動作・停止
-
+/// 
+/// ・MOMCR: MOSCの周波数とソース
 /// ・MOSCCR: MOSCの動作・停止
+/// 
+/// 
+/// 
+/// ・PLL2CCR: PLL2のソースと分周・逓倍
+/// ・PLL2CR: PLL2の動作・停止
+
+/// 
 /// ・SOSCCR: SOSCの動作・停止
 /// ・LOCOCR: LOCOの動作・停止
 /// ・HOCOCR: HOCOの動作・停止
@@ -25,7 +32,7 @@
 /// ・FLLCR2: FLLの逓倍（OFS1に合わせて設定）
 /// ・OSCSF: HOCO, MOSC, PLL, PLL2が安定しているか確認
 
-/// ・MOMCR: MOSCの周波数とソース
+/// 
 /// ・SOMCR: SOSCの駆動能力
 /// ・CKOCR: CLKOUTの出力許可、ソース、分周比
 /// ・EBCKOCR: 外部バスクロックの出力許可
@@ -48,13 +55,13 @@
 
 //#![allow(dead_code)]
 
-use core::prelude::v1;
-
 use crate::pac;
 use crate::RegisterError;
 use crate::rtc::{Rtc, RTC_CELL};
 use super::_is_prc0;
 use super::{SYSC_CELL, _prc0};
+
+
 
 pub const EK_RA6M5_XTAL_HZ: u32 = 24_000_000;
 
@@ -476,56 +483,62 @@ pub enum Error {
     Ok(())
 }*/
 
-pub struct Clocks;
+macro_rules! clock_impl_core {
+    ($name:ident) => {
+        impl $name {
+            fn _with_cs<R>(&mut self, f: impl FnOnce(&mut pac::Sysc) -> R) -> R {
+                critical_section::with(|cs| {
+                    let mut bor = SYSC_CELL.borrow(cs).borrow_mut();
+                    let sysc = bor.as_mut().expect("SYSC not initialized");
 
-impl Clocks {
-    fn _with_cs<R>(&mut self, f: impl FnOnce(&mut pac::Sysc) -> R) -> R {
-        critical_section::with(|cs| {
-            let mut bor = SYSC_CELL.borrow(cs).borrow_mut();
-            let sysc = bor.as_mut().expect("SYSC not initialized");
+                    f(sysc)
+                })
+            }
+            fn _with_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc) -> R) -> R {
+                self._with_cs(|sysc| unsafe {
+                    _prc0(sysc, true);
+                    let r = f(sysc);
+                    _prc0(sysc, false);
+                    r
+                })
+            }
+            fn _with_cs_rtc<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
+                critical_section::with(|cs| {
+                    let mut bor_sysc = SYSC_CELL.borrow(cs).borrow_mut();
+                    let sysc = bor_sysc.as_mut().expect("SYSC not initialized");
+                    let mut bor_rtc = RTC_CELL.borrow(cs).borrow_mut();
+                    let rtc = bor_rtc.as_mut().expect("RTC not initialized");
 
-            f(sysc)
-        })
-    }
-    fn _with_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc) -> R) -> R {
+                    f(sysc, rtc)
+                })
+            }
+            fn _with_cs_rtc_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
+                self._with_cs_rtc(|sysc, rtc| unsafe {
+                    _prc0(sysc, true);
+                    let r = f(sysc, rtc);
+                    _prc0(sysc, false);
+                    r
+                })
+            }
+        }
+    };
+}
+
+pub struct Clocks {
+    pub mosc: Mosc
+}
+clock_impl_core!(Clocks);
+
+pub struct Mosc { freq: Option<u32> }
+clock_impl_core!(Mosc);
+impl Mosc {
+    pub fn get_freq(&self) -> Option<u32> { self.freq }
+    pub fn get_stabilization_time(&mut self) -> Option<StabilityTime> {
         self._with_cs(|sysc| unsafe {
-            _prc0(sysc, true);
-            let r = f(sysc);
-            _prc0(sysc, false);
-            r
+            StabilityTime::from_u8(sysc.moscwtcr().read().msts().get().0)
         })
     }
-    fn _with_cs_rtc<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
-        critical_section::with(|cs| {
-            let mut bor_sysc = SYSC_CELL.borrow(cs).borrow_mut();
-            let sysc = bor_sysc.as_mut().expect("SYSC not initialized");
-            let mut bor_rtc = RTC_CELL.borrow(cs).borrow_mut();
-            let rtc = bor_rtc.as_mut().expect("RTC not initialized");
-
-            f(sysc, rtc)
-        })
-    }
-    fn _with_cs_rtc_prcr<R>(&mut self, f: impl FnOnce(&mut pac::Sysc, &mut pac::Rtc) -> R) -> R {
-        self._with_cs_rtc(|sysc, rtc| unsafe {
-            _prc0(sysc, true);
-            let r = f(sysc, rtc);
-            _prc0(sysc, false);
-            r
-        })
-    }
-    pub fn clock_write_enable(&mut self) -> Result<(), RegisterError> {
-        self._with_cs(|sysc| unsafe { _prc0(sysc, true); });
-        Ok(())
-    }
-    pub fn clock_write_disable(&mut self) -> Result<(), RegisterError> {
-        self._with_cs(|sysc| unsafe { _prc0(sysc, false); });
-        Ok(())
-    }
-    pub fn clock_write_is_enabled(&mut self) -> bool {
-        self._with_cs(|sysc| unsafe { _is_prc0(sysc) })
-    }
-    // pub fn get_system_clock_status(&mut self) {}
-    pub fn set_mosc_stabilization_time(&mut self, cycle: StabilityTime) -> Result<(), RegisterError> {
+    pub fn set_stabilization_time(&mut self, cycle: StabilityTime) -> Result<(), RegisterError> {
         self._with_prcr(|sysc| unsafe {
             let mostp_is_1 = sysc.mosccr().read().mostp().get() == pac::sysc::mosccr::Mostp::_1;
             let moscsf_is_0 = sysc.oscsf().read().moscsf().get() == pac::sysc::oscsf::Moscsf::_0;
@@ -539,6 +552,26 @@ impl Clocks {
             }
         })
     }
+}
+
+
+
+impl Clocks {
+    pub(crate) fn init() -> Self {
+        Self { mosc: Mosc { freq: None } }
+    }
+    pub fn clock_write_enable(&mut self) -> Result<(), RegisterError> {
+        self._with_cs(|sysc| unsafe { _prc0(sysc, true); });
+        Ok(())
+    }
+    pub fn clock_write_disable(&mut self) -> Result<(), RegisterError> {
+        self._with_cs(|sysc| unsafe { _prc0(sysc, false); });
+        Ok(())
+    }
+    pub fn clock_write_is_enabled(&mut self) -> bool {
+        self._with_cs(|sysc| unsafe { _is_prc0(sysc) })
+    }
+    // pub fn get_system_clock_status(&mut self) {}
     pub fn get_external_bus_clock(&mut self) -> Option<Ebclk> {
         self._with_cs(|sysc| unsafe {
             Ebclk::from_u8(sysc.bckcr().read().bclkdiv().get().0)
@@ -550,12 +583,11 @@ impl Clocks {
         });
         Ok(())
     }
-    /*pub fn get_loco_user_trimming(&mut self) -> i8 {
+    pub fn get_loco_user_trimming(&mut self) -> i8 {
         self._with_cs(|sysc| { unsafe {
-            let u = sysc.locoutcr().read().locoutrm().get();
-            0
+            ((sysc.locoutcr().read().locoutrm().get() as i16 - 128 - 0x80) as u8) as i8
         } })
-    }*/
+    }
     pub fn set_loco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
         self._with_cs_rtc_prcr(|sysc, rtc| unsafe {
             if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
@@ -566,6 +598,11 @@ impl Clocks {
                 Err(RegisterError::NotReadyToWrite)
             }
         })
+    }
+    pub fn get_moco_user_trimming(&mut self) -> i8 {
+        self._with_cs(|sysc| { unsafe {
+            ((sysc.mocoutcr().read().mocoutrm().get() as i16 - 128 - 0x80) as u8) as i8
+        } })
     }
     pub fn set_moco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
         self._with_cs_rtc_prcr(|sysc, rtc| unsafe {
@@ -578,6 +615,11 @@ impl Clocks {
             }
         })
     }
+    pub fn get_hoco_user_trimming(&mut self) -> i8 {
+        self._with_cs(|sysc| { unsafe {
+            ((sysc.hocoutcr().read().hocoutrm().get() as i16 - 128 - 0x80) as u8) as i8
+        } })
+    }
     pub fn set_hoco_user_trimming(&mut self, trimming: i8, _rtc: &mut Rtc) -> Result<(), RegisterError> {
         self._with_cs_rtc_prcr(|sysc, rtc| unsafe {
             if rtc.rcr2().read().start().get() == pac::rtc::rcr2::Start::_0 {
@@ -589,13 +631,4 @@ impl Clocks {
             }
         })
     }
-}
-
-unsafe fn require_main_on() -> Result<(), Error> {
-    Ok(())
-}
-
-#[inline]
-fn pllmul_to_bits(mul: u8) -> u8 {
-    mul.saturating_sub(1)
 }

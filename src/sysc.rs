@@ -20,7 +20,7 @@ impl Sysc {
         critical_section::with(|cs| {
             *SYSC_CELL.borrow(cs).borrow_mut() = Some(sysc);
         });
-        Ok((clock::Clocks, mstp::Mstp))
+        Ok((clock::Clocks::init(), mstp::Mstp))
     }
 }
 
@@ -33,9 +33,53 @@ unsafe fn _prc0(sysc: &mut pac::Sysc, enable: bool) {
         );
     }
 }
-
 unsafe fn _is_prc0(sysc: &mut pac::Sysc) -> bool {
     unsafe {
         sysc.prcr().read().prc0().get() == pac::sysc::prcr::Prc0::_1
+    }
+}
+
+unsafe fn _prc1(sysc: &mut pac::Sysc, enable: bool) {
+    unsafe {
+        sysc.prcr().write(
+        pac::sysc::Prcr::default()
+            .prkey().set(0xA5)
+            .prc1().set(if enable { pac::sysc::prcr::Prc1::_1 } else { pac::sysc::prcr::Prc1::_0 })
+        );
+    }
+}
+unsafe fn _is_prc1(sysc: &mut pac::Sysc) -> bool {
+    unsafe {
+        sysc.prcr().read().prc1().get() == pac::sysc::prcr::Prc1::_1
+    }
+}
+
+unsafe fn _prc3(sysc: &mut pac::Sysc, enable: bool) {
+    unsafe {
+        sysc.prcr().write(
+        pac::sysc::Prcr::default()
+            .prkey().set(0xA5)
+            .prc3().set(if enable { pac::sysc::prcr::Prc3::_1 } else { pac::sysc::prcr::Prc3::_0 })
+        );
+    }
+}
+unsafe fn _is_prc3(sysc: &mut pac::Sysc) -> bool {
+    unsafe {
+        sysc.prcr().read().prc3().get() == pac::sysc::prcr::Prc3::_1
+    }
+}
+
+unsafe fn _prc4(sysc: &mut pac::Sysc, enable: bool) {
+    unsafe {
+        sysc.prcr().write(
+        pac::sysc::Prcr::default()
+            .prkey().set(0xA5)
+            .prc4().set(if enable { pac::sysc::prcr::Prc4::_1 } else { pac::sysc::prcr::Prc4::_0 })
+        );
+    }
+}
+unsafe fn _is_prc4(sysc: &mut pac::Sysc) -> bool {
+    unsafe {
+        sysc.prcr().read().prc4().get() == pac::sysc::prcr::Prc4::_1
     }
 }

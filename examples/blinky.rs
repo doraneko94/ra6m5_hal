@@ -7,7 +7,7 @@ use embedded_hal::delay::DelayNs;
 use panic_halt as _;
 
 use ra6m5_pac as pac;
-use ra6m5_hal::{gpio, delay};
+use ra6m5_hal::{gpio, delay, sysc};
 
 #[entry]
 fn main() -> ! {
@@ -20,6 +20,9 @@ fn main() -> ! {
 
     let cp = cortex_m::Peripherals::take().unwrap();
     let mut d = delay::Delay::with_iclk(cp.SYST, 2_4000_000);
+
+    let (clk, mstp) = sysc::Sysc::init(dp.SYSC).unwrap();
+    let f = clk.mosc.get_freq();
 
     loop {
         let _ = led.set_high();

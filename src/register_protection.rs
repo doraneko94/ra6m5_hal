@@ -54,7 +54,6 @@ pub unsafe fn security_write_enable(enable: bool) {
         )
     }
 }
-
 pub unsafe fn security_write_is_enabled() -> bool {
     unsafe {
         pac::SYSC.prcr().read().prc4().get() == pac::sysc::prcr::Prc4::_1
