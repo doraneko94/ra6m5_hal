@@ -4,16 +4,25 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cortex-m = "0.7.7"
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.5"
 critical-section = "1.2.0"
 embedded-hal = "1.0.0"
 paste = "1.0.15"
-ra6m5-pac = { version = "0.2.0", features = [
+ra6m5-pac = { path = "../ra-pac/pac/ra6m5-pac", features = [
     "port0", "port1", "port2", "port3", "port4", "port5", 
     "port6", "port7", "port8", "port9", "porta", "portb", 
-    "pfs", "sysc", "fcache", "flad", "rtc"
+    "pfs", "sysc", "mstp", "fcache", "flad", "rtc", "dbg", 
+    "usbfs", "usbhs", "rt", "icu"
 ] }
 
+
 [dev-dependencies]
-panic-halt = "1.0.0"
+#panic-halt = "1.0.0"
+defmt = "1.0.1"
+defmt-rtt = "1.1.0"
+panic-probe = { version = "1.0.0", features = ["print-defmt"] }
+
+[profile.release]
+debug = 2
+lto = "off"

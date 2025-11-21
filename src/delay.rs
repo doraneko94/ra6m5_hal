@@ -1,6 +1,8 @@
 use cortex_m::peripheral::{SYST, syst::SystClkSource};
 use embedded_hal::delay::DelayNs;
 
+use crate::sysc::clock::Clocks;
+
 pub struct Delay {
     syst: SYST,
     frequency: u32,
@@ -8,18 +10,11 @@ pub struct Delay {
 
 impl Delay {
     #[inline]
-    pub fn with_iclk(syst: SYST, cpu_hz: u32) -> Self {
-        Self::with_source(syst, SystClkSource::Core, cpu_hz)
-    }
-    #[inline]
-    pub fn with_systicclk(syst: SYST) -> Self {
-        Self::with_source(syst, SystClkSource::External, 32_768)
-    }
-    #[inline]
-    fn with_source(mut syst: SYST, source: SystClkSource, frequency: u32) -> Self {
-        syst.set_clock_source(source);
+    pub fn new(mut syst: SYST, clocks: &Clocks) -> Self {
+        syst.set_clock_source(SystClkSource::Core);
         syst.disable_counter();
         syst.disable_interrupt();
+        let frequency = clocks.get_freqs().ick;
         Self { syst, frequency }
     }
 

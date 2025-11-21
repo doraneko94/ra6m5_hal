@@ -12,53 +12,6 @@ use crate::{
 static PORT_TAKEN: AtomicBool = AtomicBool::new(false);
 struct PinToken<const N: u8>;
 
-#[inline(always)]
-pub const fn p70pfs() -> &'static pac::common::ClusterRegisterArray<
-    pac::common::Reg<pac::pfs::P70Pfs_SPEC, pac::common::RW>, 8, 0x4,
->
-{
-    unsafe {
-        let ptr = (PFS_BASE as *mut u8).add(0x1c0usize);
-        &*(ptr as *const _)
-    }
-}
-
-macro_rules! gpio_pin_pfs_7 {
-    ($id:tt) => {
-        paste! {
-            impl<Mode> [<P70 $id>]<Mode> {
-                pub fn set_pfs(
-                    &self, 
-                    podr: Option<Podr>, pdr: Option<Pdr>, pcr: Option<Pcr>, 
-                    ncodr: Option<Ncodr>, dscr: Option<Drive>, eofr: Option<Edge>, 
-                    isel: Option<Isel>, asel: Option<Asel>, pmr: Option<Pmr>, psel: Option<Peripheral>
-                ) {
-                    with_pfs(|_| unsafe {
-                        let mut w = p70pfs().get($id).read();
-                        if let Some(value) = podr { w = w.podr().set((value as u8).into()); }
-                        if let Some(value) = pdr { w = w.pdr().set((value as u8).into()); }
-                        if let Some(value) = pcr { w = w.pcr().set((value as u8).into()); }
-                        if let Some(value) = ncodr { w = w.ncodr().set((value as u8).into()); }
-                        if let Some(value) = dscr {
-                            let bits = w.get_raw();
-                            w = w.set_raw((bits & !DSCR_MASK) | (((value as u32) << DSCR_SHIFT) & DSCR_MASK));
-                        }
-                        if let Some(value) = eofr {
-                            let bits = w.get_raw();
-                            w = w.set_raw((bits & !EOFR_MASK) | (((value as u32) << EOFR_SHIFT) & EOFR_MASK));
-                        }
-                        if let Some(value) = isel { w = w.isel().set((value as u8).into()); }
-                        if let Some(value) = asel { w = w.asel().set((value as u8).into()); }
-                        if let Some(value) = pmr { w = w.pmr().set((value as u8).into()); }
-                        if let Some(value) = psel { w = w.psel().set((value as u8).into()); }
-                        p70pfs().get($id).write(w);
-                    })
-                }
-            }
-        }
-    };
-}
-
 pub struct Port7 {
     _regs: pac::Port0
 }
@@ -109,56 +62,56 @@ impl Port7 {
     }
 }
 
-gpio_pin_pfs_7!     (       0);
+gpio_pin_pfs!       (7,    00);
 gpio_pin_input!     (7, 0, 00);
 // no_irq
 gpio_pin_output!    (7,    00);
 gpio_pin_drive!     (7,    00);
 gpio_pin_alternate! (7,    00);
 
-gpio_pin_pfs_7!     (       1);
+gpio_pin_pfs!       (7,    01);
 gpio_pin_input!     (7, 0, 01);
 // no_irq
 gpio_pin_output!    (7,    01);
 gpio_pin_drive!     (7,    01);
 gpio_pin_alternate! (7,    01);
 
-gpio_pin_pfs_7!     (       2);
+gpio_pin_pfs!       (7,    02);
 gpio_pin_input!     (7, 0, 02);
 // no_irq
 gpio_pin_output!    (7,    02);
 gpio_pin_drive!     (7,    02);
 gpio_pin_alternate! (7,    02);
 
-gpio_pin_pfs_7!     (       3);
+gpio_pin_pfs!       (7,    03);
 gpio_pin_input!     (7, 0, 03);
 // no_irq
 gpio_pin_output!    (7,    03);
 gpio_pin_drive!     (7,    03);
 gpio_pin_alternate! (7,    03);
 
-gpio_pin_pfs_7!     (       4);
+gpio_pin_pfs!       (7,    04);
 gpio_pin_input!     (7, 0, 04);
 // no_irq
 gpio_pin_output!    (7,    04);
 gpio_pin_drive!     (7,    04);
 gpio_pin_alternate! (7,    04);
 
-gpio_pin_pfs_7!     (       5);
+gpio_pin_pfs!       (7,    05);
 gpio_pin_input!     (7, 0, 05);
 // no_irq
 gpio_pin_output!    (7,    05);
 gpio_pin_drive!     (7,    05);
 gpio_pin_alternate! (7,    05);
 
-gpio_pin_pfs_7!     (       6);
+gpio_pin_pfs!       (7,    06);
 gpio_pin_input!     (7, 0, 06);
 gpio_pin_irq!       (7,    06);
 gpio_pin_output!    (7,    06);
 gpio_pin_drive!     (7,    06);
 gpio_pin_alternate! (7,    06);
 
-gpio_pin_pfs_7!     (       7);
+gpio_pin_pfs!       (7,    07);
 gpio_pin_input!     (7, 0, 07);
 gpio_pin_irq!       (7,    07);
 gpio_pin_output!    (7,    07);
