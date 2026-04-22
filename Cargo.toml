@@ -15,11 +15,12 @@ ra6m5-pac = { path = "../ra-pac/pac/ra6m5-pac", features = [
     "pfs", "sysc", "mstp", "fcache", "flad", "rtc", "dbg", 
     "usbfs", "usbhs", "rt", "icu"
 ] }
-
+usb-device = "0.3.2"
+defmt = "1.0.1"
 
 [dev-dependencies]
 #panic-halt = "1.0.0"
-defmt = "1.0.1"
+
 defmt-rtt = "1.1.0"
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 

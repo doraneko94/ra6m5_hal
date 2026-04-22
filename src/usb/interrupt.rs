@@ -1,4 +1,4 @@
-use crate::pac;
+/*use crate::pac;
 use crate::RegisterError;
 use super::USBFS_CELL;
 
@@ -233,4 +233,4 @@ impl VbusInput {
     #[inline] pub fn from_u8(value: u8) -> Option<Self> {
         match value { 0=>Some(Self::Low), 1=>Some(Self::High), _=>None }
     }
-}
+}*/

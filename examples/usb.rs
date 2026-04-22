@@ -11,7 +11,7 @@ use ra6m5_pac::{self as pac, NVIC};
 use ra6m5_hal::{delay, fcache, mstp, sysc};
 use ra6m5_hal::icu::{Icu, IcuEvent, iel::Iel10};
 use ra6m5_hal::sysc::clock::{ClocksConfig, ClocksDiv, EK_RA6M5_XTAL_HZ, MoscConfig, MoscSource, PliDiv, PllConfig, PllMul, UsbClkConfig, UsbClkDiv};
-use ra6m5_hal::usb::UsbDevice;
+use ra6m5_hal::usb::UsbPeripheral;
 use ra6m5_hal::usb::interrupt::{ControlTransferStage, DescriptorType, DeviceState, StandardRequest, UsbInterrupts, VbusInput, on_usbi_interrupt};
 
 use core::sync::atomic::{AtomicU32, Ordering};
@@ -136,7 +136,7 @@ fn main() -> ! {
 
 
     
-    let mut usb = UsbDevice::<pac::Usbfs>::init(dp.USBFS).unwrap();
+    let mut usb = UsbPeripheral::<pac::Usbfs>::init(dp.USBFS).unwrap();
     defmt::info!("usb enable: {}", usb.is_enabled(&mut mstp));
     usb.enable(&mut mstp).unwrap();
     defmt::info!("usb enable: {}", usb.is_enabled(&mut mstp));

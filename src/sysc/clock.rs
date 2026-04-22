@@ -62,7 +62,7 @@ fn dwt_enable_once(dcb: &mut DCB, dwt: &mut DWT) {
 }
 
 #[inline(always)]
-fn busy_wait_ns_with_dwt(ns: u32, iclk_hz: u32) {
+pub fn busy_wait_ns_with_dwt(ns: u32, iclk_hz: u32) {
     let start = DWT::cycle_count();
     let cycles = (((ns as u128) * (iclk_hz as u128) + 999_999_999u128) / 1_000_000_000u128) as u32;
     while DWT::cycle_count().wrapping_sub(start) < cycles {}

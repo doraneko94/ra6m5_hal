@@ -1,4 +1,4 @@
-pub struct Descriptor {
+/*pub struct Descriptor {
     descriptor: DescriptorType,
     is_little_endian: bool,
 }
@@ -200,4 +200,4 @@ fn _set(buf: &mut [u8], value: u16, is_little_endian: bool) {
     let head = (value >> 8) as u8;
     let tail = (value & 0xff) as u8;
     (buf[0], buf[1]) = if is_little_endian { (tail, head) } else { (head, tail) }
-}
+}*/
